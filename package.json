@@ -1,0 +1,48 @@
+{
+  "name": "apexcharts-mcp",
+  "version": "0.1.0",
+  "description": "Model Context Protocol server exposing ApexCharts knowledge and chart-building tools to AI assistants",
+  "type": "module",
+  "bin": {
+    "apexcharts-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "apexcharts",
+    "charts",
+    "data-visualization",
+    "ai",
+    "claude"
+  ],
+  "author": "ApexCharts",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.0",
+    "apexcharts-skill": "^1.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}
