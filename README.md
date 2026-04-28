@@ -1,36 +1,18 @@
 # apexcharts-mcp
 
-A [Model Context Protocol](https://modelcontextprotocol.io) server that exposes ApexCharts knowledge and chart-building capabilities to AI assistants.
-
-## What it does
-
-Lets an MCP-aware AI assistant (Claude Desktop, Claude Code, etc.) generate, validate, and explain ApexCharts configurations through MCP tools. The server bundles the ApexCharts skill knowledge base (`references/`) so the AI has authoritative data-format rules, pitfall lists, and per-chart-family guidance available locally.
-
-## Status
-
-Early scaffold. Implemented:
-
-- `generate_chart_config` — given a chart type (and optional series/categories/title/etc.), returns a minimal valid ApexCharts options object.
-- `validate_chart_config` — checks a config against the SKILL.md data-format rules and pitfalls (wrong series shape for chart type, radialBar out-of-range values, undefined data points, conflicting tooltip flags, hex colors missing `#`, etc.). Returns structured `{ ok, errors, warnings, issues }` with a `fix` hint per issue.
-- `list_chart_types` — returns every supported chart type with name, description, family, series format, expected data shape, and reference doc filename. Optional `family` filter.
-- `get_reference` — read the bundled apexcharts-skill knowledge base. Call with no arguments to list available docs (SKILL.md plus per-family references); call with `file: "circular-charts.md"` (etc.) to fetch one as markdown. Use this to look up options, formatter signatures, plotOptions, or worked examples without leaving the MCP session.
+A [Model Context Protocol](https://modelcontextprotocol.io) server that gives AI assistants like Claude expert-level help with [ApexCharts.js](https://apexcharts.com/). It generates valid chart configs, catches common mistakes, and serves the official ApexCharts knowledge base on demand — so the AI gets your charts right the first time.
 
 ## Install
 
-```bash
-npm install
-npm run build
-```
+Pick your editor / client. You only need to do this once.
 
-## Run
-
-The server speaks MCP over stdio:
+### Claude Code
 
 ```bash
-node dist/index.js
+claude mcp add apexcharts -- npx -y apexcharts-mcp
 ```
 
-### Use with Claude Desktop
+### Claude Desktop
 
 Add to `claude_desktop_config.json`:
 
@@ -38,36 +20,89 @@ Add to `claude_desktop_config.json`:
 {
   "mcpServers": {
     "apexcharts": {
-      "command": "node",
-      "args": ["/absolute/path/to/apexcharts-mcp/dist/index.js"]
+      "command": "npx",
+      "args": ["-y", "apexcharts-mcp"]
     }
   }
 }
 ```
 
-### Use with Claude Code
+### Cursor
+
+Add to `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "apexcharts": {
+      "command": "npx",
+      "args": ["-y", "apexcharts-mcp"]
+    }
+  }
+}
+```
+
+After installing, restart the client. Your AI assistant will now have the ApexCharts tools available — no further commands needed.
+
+## What you can ask the AI
+
+Once installed, the assistant can use the server's tools automatically. Things you can ask:
+
+- *"Build me a stacked area chart of monthly revenue across three regions."*
+- *"Here's my pie chart config — why isn't it rendering?"* (paste the config)
+- *"What chart type should I use for OHLC stock data?"*
+- *"Show me the formatter signatures for tooltips on a bar chart."*
+- *"Explain `plotOptions.bar.horizontal` and give me an example."*
+
+The AI decides which tool to call. You don't invoke them directly.
+
+## What's inside
+
+Four tools the AI can call:
+
+| Tool | What it does |
+|---|---|
+| `generate_chart_config` | Builds a minimal valid options object for any of 16 chart types, with the correct series-data format and sensible placeholder data. |
+| `validate_chart_config` | Checks a config against 15 rules drawn from the ApexCharts skill — wrong series shape, radialBar out-of-range, conflicting tooltip flags, hex colors without `#`, and more. Returns structured issues with `fix` hints. |
+| `list_chart_types` | Returns every supported chart type with metadata. Filterable by family (cartesian, bar, financial, circular, grid, radar). |
+| `get_reference` | Reads the bundled ApexCharts knowledge base. Call with no arguments to list available docs; call with `file: "circular-charts.md"` to fetch one. |
+
+## Knowledge base
+
+Authoritative ApexCharts guidance comes from the [`apexcharts-skill`](https://www.npmjs.com/package/apexcharts-skill) npm package — `SKILL.md` plus per-family reference docs (cartesian, bar, financial, circular, grid, radar) and topic guides (tree-shaking, SSR, framework wrappers). It's a regular dependency, so pick up upstream improvements by bumping the version on the apexcharts-mcp side. The source of truth lives at https://github.com/apexcharts/apexcharts-skill.
+
+---
+
+## Contributing
+
+For working on `apexcharts-mcp` itself.
+
+```bash
+git clone https://github.com/apexcharts/apexcharts-mcp.git
+cd apexcharts-mcp
+npm install
+npm run build
+```
+
+Run the server directly (for manual testing):
+
+```bash
+node dist/index.js
+```
+
+Point your client at the local build instead of the published package:
 
 ```bash
 claude mcp add apexcharts -- node /absolute/path/to/apexcharts-mcp/dist/index.js
 ```
 
-## Develop
+Common scripts:
 
 ```bash
 npm run dev        # tsc --watch
 npm test           # vitest
 npm run typecheck  # tsc --noEmit
 ```
-
-## Knowledge base
-
-Authoritative ApexCharts guidance comes from the [`apexcharts-skill`](https://www.npmjs.com/package/apexcharts-skill) npm package, which ships `SKILL.md` and per-family reference docs. To pick up upstream improvements, bump the dep:
-
-```bash
-npm install apexcharts-skill@latest
-```
-
-Source of truth: https://github.com/apexcharts/apexcharts-skill
 
 ## License
 
