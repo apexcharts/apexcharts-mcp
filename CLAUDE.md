@@ -58,9 +58,9 @@ Each workspace package is `private: true` — only the root `apexcharts-mcp` shi
 | `apextree_get_reference`      | implemented | List or read files from the apextree-skill knowledge base.             |
 | `apexsankey_get_reference`    | implemented | List or read files from the apexsankey-skill knowledge base.           |
 | `apexgrid_get_reference`      | implemented | List or read files from the apexgrid-skill knowledge base.             |
-| `apexgantt_generate_config`   | TODO        | Build a valid ApexGantt config (tasks, dependencies, options).         |
-| `apexgantt_validate_config`   | TODO        | Validate an ApexGantt config.                                          |
-| _(same generate/validate pattern for tree, sankey, grid)_ |  |  |
+| `apexgantt_generate_config`   | implemented | Build a valid ApexGantt config (tasks, hierarchy, dependencies, milestone, baseline). |
+| `apexgantt_validate_config`   | implemented | Validate an ApexGantt config (ids, dates, dependency shape, cycles, baseline). |
+| _(same generate/validate pattern for tree, sankey, grid: TODO)_ |  |  |
 
 ### Validator rule conventions (charts)
 
