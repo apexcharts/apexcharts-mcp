@@ -64,7 +64,8 @@ Each workspace package is `private: true` — only the root `apexcharts-mcp` shi
 | `apexsankey_validate_config`  | implemented | Validate an ApexSankey config (DAG, unique node ids, edge refs, edge.value > 0). |
 | `apextree_generate_config`    | implemented | Build a valid ApexTree config with a recursive NestedNode root. |
 | `apextree_validate_config`    | implemented | Validate an ApexTree config (every node has id/name/children, ids unique, valid options). |
-| _(same generate/validate pattern for grid: TODO)_ |  |  |
+| `apexgrid_generate_config`    | implemented | Build a valid `<apex-grid>` config `{ columns, data }`, inferring columns from data when omitted. |
+| `apexgrid_validate_config`    | implemented | Validate an apex-grid config (column.key in data, type ∈ string/number/boolean, no "date"). |
 
 ### Validator rule conventions (charts)
 
