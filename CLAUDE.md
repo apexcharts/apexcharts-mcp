@@ -60,7 +60,9 @@ Each workspace package is `private: true` — only the root `apexcharts-mcp` shi
 | `apexgrid_get_reference`      | implemented | List or read files from the apexgrid-skill knowledge base.             |
 | `apexgantt_generate_config`   | implemented | Build a valid ApexGantt config (tasks, hierarchy, dependencies, milestone, baseline). |
 | `apexgantt_validate_config`   | implemented | Validate an ApexGantt config (ids, dates, dependency shape, cycles, baseline). |
-| _(same generate/validate pattern for tree, sankey, grid: TODO)_ |  |  |
+| `apexsankey_generate_config`  | implemented | Build a valid ApexSankey config split into `{ options, data: { nodes, edges } }`. |
+| `apexsankey_validate_config`  | implemented | Validate an ApexSankey config (DAG, unique node ids, edge refs, edge.value > 0). |
+| _(same generate/validate pattern for tree, grid: TODO)_ |  |  |
 
 ### Validator rule conventions (charts)
 
