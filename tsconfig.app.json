@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "composite": true
+  },
+  "references": [
+    { "path": "./packages/mcp-core" },
+    { "path": "./packages/mcp-charts" },
+    { "path": "./packages/mcp-gantt" },
+    { "path": "./packages/mcp-tree" },
+    { "path": "./packages/mcp-sankey" },
+    { "path": "./packages/mcp-grid" }
+  ],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

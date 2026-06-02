@@ -1,7 +1,7 @@
 {
   "name": "apexcharts-mcp",
-  "version": "0.1.0",
-  "description": "Model Context Protocol server exposing ApexCharts knowledge and chart-building tools to AI assistants",
+  "version": "0.2.0",
+  "description": "Model Context Protocol server exposing the ApexCharts ecosystem (charts, gantt, tree, sankey, grid) as tools for AI assistants",
   "type": "module",
   "bin": {
     "apexcharts-mcp": "dist/index.js"
@@ -12,20 +12,29 @@
     "README.md",
     "LICENSE"
   ],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
+    "build": "tsc -b && node scripts/bundle.mjs",
+    "dev": "tsc -b --watch",
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -b",
+    "clean": "tsc -b --clean && rm -rf dist",
     "prepare": "npm run build"
   },
   "keywords": [
     "mcp",
     "model-context-protocol",
     "apexcharts",
+    "apexgantt",
+    "apextree",
+    "apexsankey",
+    "apex-grid",
     "charts",
+    "gantt",
     "data-visualization",
     "ai",
     "claude"
@@ -37,11 +46,16 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.0",
-    "apexcharts-skill": "^1.0.0",
+    "apexcharts-skill": "^1.1.0",
+    "apexgantt-skill": "^1.1.0",
+    "apexgrid-skill": "^1.0.0",
+    "apexsankey-skill": "^1.1.0",
+    "apextree-skill": "^1.1.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "esbuild": "^0.21.0",
     "typescript": "^5.4.0",
     "vitest": "^1.6.0"
   }

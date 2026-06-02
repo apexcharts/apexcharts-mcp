@@ -1,6 +1,8 @@
 # apexcharts-mcp
 
-A [Model Context Protocol](https://modelcontextprotocol.io) server that gives AI assistants like Claude expert-level help with [ApexCharts.js](https://apexcharts.com/). It generates valid chart configs, catches common mistakes, and serves the official ApexCharts knowledge base on demand — so the AI gets your charts right the first time.
+A [Model Context Protocol](https://modelcontextprotocol.io) server that gives AI assistants like Claude expert-level help with the **ApexCharts ecosystem** — charts, gantt, tree, sankey, and grid. It generates valid configs, catches common mistakes, and serves the official knowledge base for each product on demand — so the AI gets your visualization right the first time.
+
+One MCP, five products. Tools are namespaced per product (`apexcharts_*`, `apexgantt_*`, `apextree_*`, `apexsankey_*`, `apexgrid_*`) so you can use any combination together.
 
 ## Install
 
@@ -42,34 +44,62 @@ Add to `~/.cursor/mcp.json`:
 }
 ```
 
-After installing, restart the client. Your AI assistant will now have the ApexCharts tools available — no further commands needed.
+After installing, restart the client. Your AI assistant will now have tools for every ApexCharts product available — no further commands needed.
 
 ## What you can ask the AI
 
-Once installed, the assistant can use the server's tools automatically. Things you can ask:
+Once installed, the assistant uses the server's tools automatically. Things you can ask:
 
 - *"Build me a stacked area chart of monthly revenue across three regions."*
 - *"Here's my pie chart config — why isn't it rendering?"* (paste the config)
-- *"What chart type should I use for OHLC stock data?"*
-- *"Show me the formatter signatures for tooltips on a bar chart."*
-- *"Explain `plotOptions.bar.horizontal` and give me an example."*
+- *"What data format does ApexGantt expect for dependencies?"*
+- *"Show me the recursive node shape ApexTree uses."*
+- *"How do I configure layer ordering in ApexSankey?"*
+- *"Explain `cellTemplate` in apex-grid and give me an example."*
 
 The AI decides which tool to call. You don't invoke them directly.
 
-## What's inside
+## Tools
 
-Four tools the AI can call:
+| Product   | Tools |
+|-----------|-------|
+| **apexcharts** | `apexcharts_generate_config`, `apexcharts_validate_config`, `apexcharts_list_types`, `apexcharts_get_reference` |
+| **apexgantt** | `apexgantt_get_reference` |
+| **apextree** | `apextree_get_reference` |
+| **apexsankey** | `apexsankey_get_reference` |
+| **apexgrid** | `apexgrid_get_reference` |
 
-| Tool | What it does |
-|---|---|
-| `generate_chart_config` | Builds a minimal valid options object for any of 16 chart types, with the correct series-data format and sensible placeholder data. |
-| `validate_chart_config` | Checks a config against 15 rules drawn from the ApexCharts skill — wrong series shape, radialBar out-of-range, conflicting tooltip flags, hex colors without `#`, and more. Returns structured issues with `fix` hints. |
-| `list_chart_types` | Returns every supported chart type with metadata. Filterable by family (cartesian, bar, financial, circular, grid, radar). |
-| `get_reference` | Reads the bundled ApexCharts knowledge base. Call with no arguments to list available docs; call with `file: "circular-charts.md"` to fetch one. |
+The chart tools (`apexcharts_*`) cover 16 chart types with config generation, validation against 15 rules, and a typed catalog. The other products currently expose their reference docs; config generation and validation for them is on the roadmap.
+
+## Limiting which products load
+
+By default, all five products' tools are registered. To load only a subset, set `APEXCHARTS_MCP_PRODUCTS` to a comma-separated list of product ids:
+
+```json
+{
+  "mcpServers": {
+    "apexcharts": {
+      "command": "npx",
+      "args": ["-y", "apexcharts-mcp"],
+      "env": { "APEXCHARTS_MCP_PRODUCTS": "charts,gantt" }
+    }
+  }
+}
+```
+
+Valid ids: `charts`, `gantt`, `tree`, `sankey`, `grid`. Unknown ids are skipped with a stderr warning; the server still starts.
 
 ## Knowledge base
 
-Authoritative ApexCharts guidance comes from the [`apexcharts-skill`](https://www.npmjs.com/package/apexcharts-skill) npm package — `SKILL.md` plus per-family reference docs (cartesian, bar, financial, circular, grid, radar) and topic guides (tree-shaking, SSR, framework wrappers). It's a regular dependency, so pick up upstream improvements by bumping the version on the apexcharts-mcp side. The source of truth lives at https://github.com/apexcharts/apexcharts-skill.
+Authoritative guidance comes from the per-product skill packages on npm:
+
+- [`apexcharts-skill`](https://www.npmjs.com/package/apexcharts-skill) — SKILL.md + cartesian/bar/financial/circular/grid/radar references + tree-shaking, SSR, framework wrappers
+- [`apexgantt-skill`](https://www.npmjs.com/package/apexgantt-skill) — task data, dependencies, columns/toolbar, events, framework wrappers
+- [`apextree-skill`](https://www.npmjs.com/package/apextree-skill) — data format, graph API, framework wrappers
+- [`apexsankey-skill`](https://www.npmjs.com/package/apexsankey-skill) — data format, styling/interaction, framework wrappers
+- [`apexgrid-skill`](https://www.npmjs.com/package/apexgrid-skill) — columns/templates, data pipeline, sort/filter, framework integration, vanilla JS
+
+They're regular dependencies — bump the version in this repo's [package.json](package.json) to pick up upstream improvements. Each skill repo is the source of truth for its own docs.
 
 ---
 
@@ -83,6 +113,22 @@ cd apexcharts-mcp
 npm install
 npm run build
 ```
+
+This is an npm workspace monorepo:
+
+```
+apexcharts-mcp/
+  src/index.ts            # bootstrap — reads APEXCHARTS_MCP_PRODUCTS, wires up products
+  packages/
+    mcp-core/             # shared types and the reference-reader factory
+    mcp-charts/           # apexcharts_* tools
+    mcp-gantt/            # apexgantt_* tools
+    mcp-tree/             # apextree_* tools
+    mcp-sankey/           # apexsankey_* tools
+    mcp-grid/             # apexgrid_* tools
+```
+
+The build runs `tsc -b` across all workspaces, then bundles `src/index.ts` (plus all workspace packages) into a single `dist/index.js` via esbuild. Skill packages stay external because they resolve file paths via `import.meta.url`.
 
 Run the server directly (for manual testing):
 
@@ -99,9 +145,10 @@ claude mcp add apexcharts -- node /absolute/path/to/apexcharts-mcp/dist/index.js
 Common scripts:
 
 ```bash
-npm run dev        # tsc --watch
+npm run dev        # tsc -b --watch
 npm test           # vitest
-npm run typecheck  # tsc --noEmit
+npm run typecheck  # tsc -b
+npm run clean      # remove all dist/ output
 ```
 
 ## License
