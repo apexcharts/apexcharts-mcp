@@ -50,6 +50,7 @@ Each workspace package is `private: true` — only the root `apexcharts-mcp` shi
 
 | Tool                          | Status      | Purpose                                                                |
 | ----------------------------- | ----------- | ---------------------------------------------------------------------- |
+| `apexcharts_list_products`    | implemented | Meta: list the products this server exposes with a "when to pick this" hint and their tool names. Respects env-var gating. |
 | `apexcharts_generate_config`  | implemented | Build a minimal valid ApexCharts options object.                       |
 | `apexcharts_validate_config`  | implemented | Check a config against SKILL.md rules. Returns structured issues.      |
 | `apexcharts_list_types`       | implemented | Return supported chart types with metadata. Filterable by family.      |

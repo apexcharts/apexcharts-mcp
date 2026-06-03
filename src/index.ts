@@ -2,6 +2,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
+import { registerMetaTools } from '@apexcharts-mcp/core';
+
 import * as charts from '@apexcharts-mcp/charts';
 import * as gantt from '@apexcharts-mcp/gantt';
 import * as grid from '@apexcharts-mcp/grid';
@@ -40,8 +42,10 @@ function parseProducts(env: string | undefined): ProductKey[] {
 async function main(): Promise<void> {
   const enabled = parseProducts(process.env.APEXCHARTS_MCP_PRODUCTS);
   const server = new McpServer({ name: 'apexcharts-mcp', version: '0.2.0' });
-  for (const id of enabled) {
-    PRODUCT_MODULES[id].registerTools(server);
+  const enabledModules = enabled.map((id) => PRODUCT_MODULES[id]);
+  registerMetaTools(server, enabledModules);
+  for (const m of enabledModules) {
+    m.registerTools(server);
   }
   const transport = new StdioServerTransport();
   await server.connect(transport);
