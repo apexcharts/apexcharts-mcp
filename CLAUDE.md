@@ -50,7 +50,7 @@ Each workspace package is `private: true` — only the root `apexcharts-mcp` shi
 
 | Tool                          | Status      | Purpose                                                                |
 | ----------------------------- | ----------- | ---------------------------------------------------------------------- |
-| `apexcharts_list_products`    | implemented | Meta: list the products this server exposes with a "when to pick this" hint and their tool names. Respects env-var gating. |
+| `apexcharts_list_products`    | implemented | Meta: list the products this server exposes with a "when to pick this" hint, their tool names, and a `compatibility` block (skill version + upstream `library_version` the docs were verified against, read live from each SKILL.md). Respects env-var gating. |
 | `apexcharts_generate_config`  | implemented | Build a minimal valid ApexCharts options object.                       |
 | `apexcharts_validate_config`  | implemented | Check a config against SKILL.md rules. Returns structured issues.      |
 | `apexcharts_list_types`       | implemented | Return supported chart types with metadata. Filterable by family.      |
@@ -115,6 +115,24 @@ The MCP server communicates via JSON-RPC on stdout. **Never `console.log` from s
 Reference docs come from the individual `*-skill` npm packages and are NOT vendored here. To refresh them, bump the skill version in the root `package.json` and `npm install`. Source of truth for each lives in its own repo (apexcharts/apexcharts-skill, apexcharts/apexgantt-skill, …). Open doc PRs there, not here.
 
 Always read knowledge-base files through the per-product `skill.ts` helpers (which use `@apexcharts-mcp/core`'s `createReferenceReader`) — never hardcode `node_modules/*-skill/...` paths, since that breaks under pnpm strict mode and yarn PnP.
+
+### Version tracking (which upstream version each skill targets)
+
+Each skill's `SKILL.md` frontmatter declares `metadata.library_version` — the upstream library version its docs were verified against — and `metadata.npm` — the upstream package name. These two fields are the single source of truth; everything below derives from them, nothing is hand-maintained in this repo.
+
+- **Drift check + release review**: `npm run check:versions` (`scripts/check-versions.mjs`) reads each installed skill's `library_version` + `npm` + `github` and compares against the latest on the npm registry, printing a table and exiting non-zero when any upstream library is ahead. For each skill that's behind it also prints a **review block**: the upstream GitHub releases published since the verified version (fetched via the `gh` CLI — public repos, your gh auth) and a checklist of that skill's reference files to re-read for relevance. This is the "after every release, check the references" loop in one command: detect → what-changed → what-to-review. `--json` for machine output (never exits non-zero; includes `review.releases` + `referenceFiles`). Good for CI / pre-release. If `gh` is unavailable the checklist still prints and points at the releases page.
+- **Runtime self-report**: `apexcharts_list_products` surfaces the same fields per product in a `compatibility` block (via `@apexcharts-mcp/core`'s `readSkillCompatibility`), so an AI client can tell the user which library version this server's guidance targets.
+
+`library_version` is most useful pinned to an *exact* version (e.g. `5.15.0`); a range (`>=5.0.0`) still works but weakens drift detection. The update loop when upstream ships a release: update the SKILL.md in the skill repo → bump the skill version → bump it in this repo's `package.json` → `npm install`.
+
+#### Verifying a skill is actually accurate for its pinned version
+
+Detecting that a release happened (above) is separate from confirming the docs are *correct* for it. A `library_version` pin is only a defensible claim once the docs review clean against that version. Two layers, run against the **source** skill repos (the sibling checkouts you edit), not node_modules:
+
+1. **Mechanical signal** — `npm run verify:skills` (`scripts/verify-skills.mjs`) installs each skill's exact pinned library into an isolated cache (`node_modules/.cache/skill-verify/`), loads its shipped `.d.ts`, and reports doc code examples that reference imports/methods/keys the library doesn't appear to have. It is **informational, never a gate** (always exits 0): method checks are scoped to detected library instances to cut noise, but examples still mix in other libraries (Vue/Express), untyped sub-entry points (`apexcharts/ssr`), and sub-object methods. Treat hits as candidates, not failures. `--json` / `verify:skills <product>` supported. Override the source location with `SKILL_SRC_ROOT=/path`.
+2. **Agent review (authoritative)** — `scripts/skill-review.md` is a ready-to-fill prompt template: spawn one agent per skill, feed it the source docs + the pinned library's `.d.ts` + the mechanical signal, and it reports doc claims the types contradict, with judgment the regex can't make (e.g. recognizing that `app.use()` is Vue, or that an event API moved to the container element). This is what actually earns the pin.
+
+Reality check from the first run: the apexgantt skill pinned at 3.11.1 still documented the removed `ViewMode` / `viewMode` API (replaced by `pixelsPerDay`) — i.e. pinning to "latest" without this review can assert a compatibility that's false. Always review before trusting a pin; if docs can't be fixed yet, pin to the last version they actually match.
 
 ### Env-var product gating
 

@@ -17,3 +17,5 @@ export const metadata: ProductMetadata = {
 export function registerTools(server: McpServer): void {
   registerTreeTools(server);
 }
+
+export { readCompatibility } from './skill.js';

@@ -67,6 +67,33 @@ describe('registerMetaTools', () => {
     expect('docs' in payload.products[1]).toBe(false);
   });
 
+  it('includes compatibility when a module exposes readCompatibility, omits it otherwise', async () => {
+    const chartsWithCompat: ProductModule = {
+      ...charts,
+      readCompatibility: async () => ({
+        skillVersion: '1.1.0',
+        library: 'apexcharts',
+        verifiedAgainst: '5.15.0',
+      }),
+    };
+    const server = makeFakeServer();
+    registerMetaTools(server as unknown as Parameters<typeof registerMetaTools>[0], [
+      chartsWithCompat,
+      gantt,
+    ]);
+    const result = (await server.registrations[0].handler({})) as {
+      content: Array<{ type: string; text: string }>;
+    };
+    const payload = JSON.parse(result.content[0].text);
+    expect(payload.products[0].compatibility).toEqual({
+      skillVersion: '1.1.0',
+      library: 'apexcharts',
+      verifiedAgainst: '5.15.0',
+    });
+    // gantt has no readCompatibility — the key should be omitted entirely
+    expect('compatibility' in payload.products[1]).toBe(false);
+  });
+
   it('respects env-var gating: only the modules passed in are listed', async () => {
     const server = makeFakeServer();
     registerMetaTools(server as unknown as Parameters<typeof registerMetaTools>[0], [gantt]);

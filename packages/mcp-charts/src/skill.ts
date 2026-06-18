@@ -5,7 +5,12 @@
  * not bundled in this repo. The shared core reader handles SKILL.md vs
  * reference-file routing.
  */
-import { createReferenceReader, type ReferenceEntry } from '@apexcharts-mcp/core';
+import {
+  createReferenceReader,
+  readSkillCompatibility,
+  type ReferenceEntry,
+  type SkillCompatibility,
+} from '@apexcharts-mcp/core';
 import * as skill from 'apexcharts-skill';
 
 export const REFERENCE_INDEX: ReferenceEntry[] = [
@@ -75,4 +80,8 @@ export async function readSkill(): Promise<string> {
 
 export async function readReference(filename: string): Promise<string> {
   return reader.read(filename);
+}
+
+export function readCompatibility(): Promise<SkillCompatibility> {
+  return readSkillCompatibility(skill);
 }

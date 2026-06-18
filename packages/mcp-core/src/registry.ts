@@ -13,8 +13,16 @@ export interface ProductMetadata {
   docs?: string;
 }
 
+import type { SkillCompatibility } from './compatibility.js';
+
 export interface ProductModule {
   id: ProductId;
   metadata: ProductMetadata;
   registerTools(server: McpServer): void;
+  /**
+   * Resolve which upstream library version this product's bundled skill was
+   * verified against. Read at runtime from the skill package's SKILL.md, so it
+   * can't drift from the docs. Surfaced by `apexcharts_list_products`.
+   */
+  readCompatibility?(): Promise<SkillCompatibility>;
 }

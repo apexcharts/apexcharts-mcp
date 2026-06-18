@@ -22,3 +22,5 @@ export const metadata: ProductMetadata = {
 export function registerTools(server: McpServer): void {
   registerChartsTools(server);
 }
+
+export { readCompatibility } from './skill.js';

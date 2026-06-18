@@ -1,4 +1,9 @@
-import { createReferenceReader, type ReferenceEntry } from '@apexcharts-mcp/core';
+import {
+  createReferenceReader,
+  readSkillCompatibility,
+  type ReferenceEntry,
+  type SkillCompatibility,
+} from '@apexcharts-mcp/core';
 import * as skill from 'apexsankey-skill';
 
 export const REFERENCE_INDEX: ReferenceEntry[] = [
@@ -29,4 +34,8 @@ export function isKnownReference(file: string): boolean {
 
 export async function readKnownFile(file: string): Promise<string> {
   return reader.read(file);
+}
+
+export function readCompatibility(): Promise<SkillCompatibility> {
+  return readSkillCompatibility(skill);
 }
