@@ -1,7 +1,7 @@
 {
   "name": "apexcharts-mcp",
   "version": "0.3.0",
-  "description": "Model Context Protocol server exposing the ApexCharts ecosystem (charts, gantt, tree, sankey, grid) as tools for AI assistants",
+  "description": "Model Context Protocol server exposing the ApexCharts ecosystem (charts, gantt, tree, sankey, grid, stock) as tools for AI assistants",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/apexcharts/apexcharts-mcp.git"
@@ -39,8 +39,10 @@
     "apextree",
     "apexsankey",
     "apex-grid",
+    "apexstock",
     "charts",
     "gantt",
+    "stock",
     "data-visualization",
     "ai",
     "claude"
@@ -59,6 +61,7 @@
     "apexgantt-skill": "^1.3.0",
     "apexgrid-skill": "^2.1.0",
     "apexsankey-skill": "^1.2.0",
+    "apexstock-skill": "^1.0.0",
     "apextree-skill": "^1.3.0",
     "zod": "^3.23.8"
   },

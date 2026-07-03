@@ -1,6 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
-export type ProductId = 'charts' | 'gantt' | 'tree' | 'sankey' | 'grid';
+export type ProductId = 'charts' | 'gantt' | 'tree' | 'sankey' | 'grid' | 'stock';
 
 export interface ProductMetadata {
   /** Human-facing display name (e.g. "ApexCharts", "ApexGantt"). */

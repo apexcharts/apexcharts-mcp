@@ -7,6 +7,7 @@
     { "path": "./packages/mcp-tree" },
     { "path": "./packages/mcp-sankey" },
     { "path": "./packages/mcp-grid" },
+    { "path": "./packages/mcp-stock" },
     { "path": "./tsconfig.app.json" }
   ]
 }

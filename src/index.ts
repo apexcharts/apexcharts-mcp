@@ -8,9 +8,10 @@ import * as charts from '@apexcharts-mcp/charts';
 import * as gantt from '@apexcharts-mcp/gantt';
 import * as grid from '@apexcharts-mcp/grid';
 import * as sankey from '@apexcharts-mcp/sankey';
+import * as stock from '@apexcharts-mcp/stock';
 import * as tree from '@apexcharts-mcp/tree';
 
-const PRODUCT_MODULES = { charts, gantt, tree, sankey, grid } as const;
+const PRODUCT_MODULES = { charts, gantt, tree, sankey, grid, stock } as const;
 type ProductKey = keyof typeof PRODUCT_MODULES;
 const PRODUCT_IDS = Object.keys(PRODUCT_MODULES) as ProductKey[];
 
@@ -41,7 +42,7 @@ function parseProducts(env: string | undefined): ProductKey[] {
 
 async function main(): Promise<void> {
   const enabled = parseProducts(process.env.APEXCHARTS_MCP_PRODUCTS);
-  const server = new McpServer({ name: 'apexcharts-mcp', version: '0.2.0' });
+  const server = new McpServer({ name: 'apexcharts-mcp', version: '0.4.0' });
   const enabledModules = enabled.map((id) => PRODUCT_MODULES[id]);
   registerMetaTools(server, enabledModules);
   for (const m of enabledModules) {

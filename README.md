@@ -1,8 +1,8 @@
 # apexcharts-mcp
 
-A [Model Context Protocol](https://modelcontextprotocol.io) server that gives AI assistants like Claude expert-level help with the **ApexCharts ecosystem** — charts, gantt, tree, sankey, and grid. It generates valid configs, catches common mistakes, and serves the official knowledge base for each product on demand — so the AI gets your visualization right the first time.
+A [Model Context Protocol](https://modelcontextprotocol.io) server that gives AI assistants like Claude expert-level help with the **ApexCharts ecosystem**: charts, gantt, tree, sankey, grid, and stock. It generates valid configs, catches common mistakes, and serves the official knowledge base for each product on demand, so the AI gets your visualization right the first time.
 
-One MCP, five products. Tools are namespaced per product (`apexcharts_*`, `apexgantt_*`, `apextree_*`, `apexsankey_*`, `apexgrid_*`) so you can use any combination together.
+One MCP, six products. Tools are namespaced per product (`apexcharts_*`, `apexgantt_*`, `apextree_*`, `apexsankey_*`, `apexgrid_*`, `apexstock_*`) so you can use any combination together.
 
 ## Install
 
@@ -69,12 +69,13 @@ The AI decides which tool to call. You don't invoke them directly.
 | **apextree** | `apextree_generate_config`, `apextree_validate_config`, `apextree_get_reference` |
 | **apexsankey** | `apexsankey_generate_config`, `apexsankey_validate_config`, `apexsankey_get_reference` |
 | **apexgrid** | `apexgrid_generate_config`, `apexgrid_validate_config`, `apexgrid_get_reference` |
+| **apexstock** | `apexstock_generate_config`, `apexstock_validate_config`, `apexstock_get_reference` |
 
 Every product exposes `generate_config` (build a valid config from a short spec) and `validate_config` (check a config against its skill's rules and return structured issues), plus `get_reference` to read that product's knowledge base on demand. The chart tools add `apexcharts_list_types` (a typed catalog of the 16 supported chart types); `apexcharts_generate_config` covers all 16 and `apexcharts_validate_config` checks against 15 rules. `apexcharts_list_products` is a meta tool that lists the products this server exposes, their tool names, and the upstream library version each product's guidance targets.
 
 ## Limiting which products load
 
-By default, all five products' tools are registered. To load only a subset, set `APEXCHARTS_MCP_PRODUCTS` to a comma-separated list of product ids:
+By default, all six products' tools are registered. To load only a subset, set `APEXCHARTS_MCP_PRODUCTS` to a comma-separated list of product ids:
 
 ```json
 {
@@ -88,7 +89,7 @@ By default, all five products' tools are registered. To load only a subset, set 
 }
 ```
 
-Valid ids: `charts`, `gantt`, `tree`, `sankey`, `grid`. Unknown ids are skipped with a stderr warning; the server still starts.
+Valid ids: `charts`, `gantt`, `tree`, `sankey`, `grid`, `stock`. Unknown ids are skipped with a stderr warning; the server still starts.
 
 ## Knowledge base
 
@@ -99,6 +100,7 @@ Authoritative guidance comes from the per-product skill packages on npm:
 - [`apextree-skill`](https://www.npmjs.com/package/apextree-skill) — data format, graph API, framework wrappers
 - [`apexsankey-skill`](https://www.npmjs.com/package/apexsankey-skill) — data format, styling/interaction, framework wrappers
 - [`apexgrid-skill`](https://www.npmjs.com/package/apexgrid-skill) — columns/templates, data pipeline, sort/filter, framework integration, vanilla JS
+- [`apexstock-skill`](https://www.npmjs.com/package/apexstock-skill): OHLC data format, technical indicators, streaming/appendData, trading overlays, theming, framework wrappers
 
 They're regular dependencies — bump the version in this repo's [package.json](package.json) to pick up upstream improvements. Each skill repo is the source of truth for its own docs.
 
