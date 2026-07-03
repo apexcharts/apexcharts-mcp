@@ -63,13 +63,14 @@ The AI decides which tool to call. You don't invoke them directly.
 
 | Product   | Tools |
 |-----------|-------|
+| **meta** | `apexcharts_list_products` |
 | **apexcharts** | `apexcharts_generate_config`, `apexcharts_validate_config`, `apexcharts_list_types`, `apexcharts_get_reference` |
-| **apexgantt** | `apexgantt_get_reference` |
-| **apextree** | `apextree_get_reference` |
-| **apexsankey** | `apexsankey_get_reference` |
-| **apexgrid** | `apexgrid_get_reference` |
+| **apexgantt** | `apexgantt_generate_config`, `apexgantt_validate_config`, `apexgantt_get_reference` |
+| **apextree** | `apextree_generate_config`, `apextree_validate_config`, `apextree_get_reference` |
+| **apexsankey** | `apexsankey_generate_config`, `apexsankey_validate_config`, `apexsankey_get_reference` |
+| **apexgrid** | `apexgrid_generate_config`, `apexgrid_validate_config`, `apexgrid_get_reference` |
 
-The chart tools (`apexcharts_*`) cover 16 chart types with config generation, validation against 15 rules, and a typed catalog. The other products currently expose their reference docs; config generation and validation for them is on the roadmap.
+Every product exposes `generate_config` (build a valid config from a short spec) and `validate_config` (check a config against its skill's rules and return structured issues), plus `get_reference` to read that product's knowledge base on demand. The chart tools add `apexcharts_list_types` (a typed catalog of the 16 supported chart types); `apexcharts_generate_config` covers all 16 and `apexcharts_validate_config` checks against 15 rules. `apexcharts_list_products` is a meta tool that lists the products this server exposes, their tool names, and the upstream library version each product's guidance targets.
 
 ## Limiting which products load
 
