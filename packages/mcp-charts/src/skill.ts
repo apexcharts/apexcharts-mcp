@@ -17,7 +17,7 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
   {
     file: 'SKILL.md',
     description:
-      'Top-level skill index: critical rules, the series data format table for all 16 chart types, formatter signatures, 16 pitfalls, and an API methods reference. Read this first.',
+      'Top-level skill index (targets ApexCharts v6): critical rules, the series data format table for all 20 chart types, formatter signatures, pitfalls, the v6 feature-platform map, and an API methods reference. Read this first.',
   },
   {
     file: 'cartesian-charts.md',
@@ -27,17 +27,17 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
   {
     file: 'bar-charts.md',
     description:
-      'Bar, column, rangeBar, and timeline/Gantt — plotOptions.bar, horizontal vs vertical, stacking, and timeline patterns.',
+      'Bar, column, rangeBar, timeline/Gantt, and the v6 funnel + pyramid aliases: plotOptions.bar, horizontal vs vertical, stacking, timeline patterns, and funnel/pyramid shapes.',
   },
   {
     file: 'financial-charts.md',
     description:
-      'Candlestick (OHLC) and box plot (5-number summary) — data formats, plotOptions for colors, and time axis setup.',
+      'Candlestick (OHLC), box plot (5-number summary), and the v6 violin (density profile): data formats, plotOptions for colors, and time axis setup.',
   },
   {
     file: 'circular-charts.md',
     description:
-      'Pie, donut, polar area, and radial bar — flat-array series format, labels, donut center customization, and the 0–100 radialBar rule.',
+      'Pie, donut, polar area, radial bar, and the v6 gauge (arc/needle, bands, ticks): flat-array series format, labels, donut center customization, and the 0-100 radialBar rule.',
   },
   {
     file: 'grid-charts.md',
@@ -48,9 +48,14 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
     description: 'Radar charts — categories per axis, scaling, and styling polygons.',
   },
   {
+    file: 'v6-features.md',
+    description:
+      'The v6 opt-in feature platform: plugins (Weave), canvas renderer (Strata), custom series (Marks), undo/redo (Rewind), shareable views (Perspectives), themes/tokens (Facet), easing (Cadence), crossfilter (Link), annotation authoring (Ink), measure ruler, context menu, storyboard, streaming, and drilldown, with config shapes, APIs, and tree-shaking import paths.',
+  },
+  {
     file: 'tree-shaking.md',
     description:
-      'Bundle optimization: per-type entry points, feature side-effect imports, and how to register types/features manually.',
+      'Bundle optimization: per-type entry points, feature side-effect imports (including all v6 features), and how to register types/features manually.',
   },
   {
     file: 'ssr.md',

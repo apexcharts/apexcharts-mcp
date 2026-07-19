@@ -32,9 +32,9 @@ packages/
     src/
       index.ts                      # exports { id, registerTools }
       register.ts                   # the four apexcharts_* registerTool calls
-      chartCatalog.ts               # single source of truth for the 16 supported chart types
+      chartCatalog.ts               # single source of truth for the 20 supported chart types (incl. v6 violin/funnel/pyramid/gauge)
       generateConfig.ts             # pure function: chart type + options → ApexCharts options object
-      validateConfig.ts             # 15-rule structural/semantic validator
+      validateConfig.ts             # structural/semantic validator (24 rules)
       skill.ts                      # REFERENCE_INDEX + thin wrapper over core's reader
       apexcharts-skill.d.ts         # ambient module decl (skill package ships no types)
     tests/                          # vitest tests for the above

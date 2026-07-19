@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { SUPPORTED_CHART_TYPES } from '../src/chartCatalog.js';
 import { generateChartConfig } from '../src/generateConfig.js';
+import { validateChartConfig } from '../src/validateConfig.js';
 
 describe('generateChartConfig', () => {
   it('builds a minimal line chart with default placeholder data', () => {
@@ -70,6 +72,43 @@ describe('generateChartConfig', () => {
     for (const v of series) {
       expect(v).toBeGreaterThanOrEqual(0);
       expect(v).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it('builds a single-value non-axis series for gauge (v6)', () => {
+    const config = generateChartConfig({ type: 'gauge' });
+    expect((config.chart as { type: string }).type).toBe('gauge');
+    const series = config.series as number[];
+    expect(series.every((s) => typeof s === 'number')).toBe(true);
+    expect(series.length).toBe(1);
+    expect(Array.isArray(config.labels)).toBe(true);
+  });
+
+  it('builds funnel/pyramid with axis series and stage categories (v6)', () => {
+    for (const type of ['funnel', 'pyramid'] as const) {
+      const config = generateChartConfig({ type });
+      const series = config.series as Array<{ data: number[] }>;
+      expect(series[0].data.every((n) => typeof n === 'number')).toBe(true);
+      expect((config.xaxis as { categories: string[] }).categories.length).toBe(
+        series[0].data.length,
+      );
+    }
+  });
+
+  it('builds violin points with a density profile (v6)', () => {
+    const config = generateChartConfig({ type: 'violin' });
+    const series = config.series as Array<{
+      data: Array<{ x: string; y: { density: number[][]; points?: number[] } }>;
+    }>;
+    expect(Array.isArray(series[0].data[0].y.density)).toBe(true);
+    expect(series[0].data[0].y.density[0].length).toBe(2);
+  });
+
+  it('generates a config that validates cleanly for every supported type', () => {
+    for (const type of SUPPORTED_CHART_TYPES) {
+      const config = generateChartConfig({ type });
+      const result = validateChartConfig(config);
+      expect(result.errors, `${type} should generate an error-free config`).toEqual([]);
     }
   });
 });

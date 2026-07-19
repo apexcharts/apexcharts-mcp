@@ -97,6 +97,26 @@ export const CHART_CATALOG: ChartTypeInfo[] = [
     dataFormat: '[{ name, data: [{ x, y: [start, end] }] }]',
   },
   {
+    type: 'funnel',
+    name: 'Funnel',
+    description:
+      'First-class funnel chart (new in v6). A bar alias for stage-by-stage drop-off. Order values largest-to-smallest.',
+    family: 'bar',
+    referenceFile: 'bar-charts.md',
+    seriesFormat: 'axis',
+    dataFormat: '[{ name, data: [number] }] + xaxis: { categories: [...] } for stage labels',
+  },
+  {
+    type: 'pyramid',
+    name: 'Pyramid',
+    description:
+      'First-class pyramid chart (new in v6). A funnel with the wide base at the bottom. Order values smallest-to-largest.',
+    family: 'bar',
+    referenceFile: 'bar-charts.md',
+    seriesFormat: 'axis',
+    dataFormat: '[{ name, data: [number] }] + xaxis: { categories: [...] } for stage labels',
+  },
+  {
     type: 'candlestick',
     name: 'Candlestick',
     description: 'Financial OHLC chart showing open/high/low/close per period.',
@@ -113,6 +133,16 @@ export const CHART_CATALOG: ChartTypeInfo[] = [
     referenceFile: 'financial-charts.md',
     seriesFormat: 'axis',
     dataFormat: '[{ data: [{ x, y: [min, Q1, median, Q3, max] }] }]',
+  },
+  {
+    type: 'violin',
+    name: 'Violin',
+    description:
+      'Statistical distribution chart (new in v6). Each category shows a density curve, optionally with the raw sample points as jitter.',
+    family: 'financial',
+    referenceFile: 'financial-charts.md',
+    seriesFormat: 'axis',
+    dataFormat: '[{ name, data: [{ x, y: { density: [[value, weight], ...], points?: [number] } }] }]',
   },
   {
     type: 'heatmap',
@@ -171,11 +201,21 @@ export const CHART_CATALOG: ChartTypeInfo[] = [
   {
     type: 'radialBar',
     name: 'Radial Bar',
-    description: 'Circular gauge / progress chart. Values must be 0–100 (percentages).',
+    description: 'Circular progress chart with one or more concentric tracks. Values are 0-100 (percentages).',
     family: 'circular',
     referenceFile: 'circular-charts.md',
     seriesFormat: 'non-axis',
     dataFormat: 'series: [number 0–100, ...] + labels: [string, ...]',
+  },
+  {
+    type: 'gauge',
+    name: 'Gauge',
+    description:
+      'First-class gauge chart (new in v6). A radialBar alias supporting arc/needle shapes, colored bands, ticks, and a custom min/max domain.',
+    family: 'circular',
+    referenceFile: 'circular-charts.md',
+    seriesFormat: 'non-axis',
+    dataFormat: 'series: [number] (single value) + labels: [string]; domain set via plotOptions.radialBar.min/max',
   },
 ];
 

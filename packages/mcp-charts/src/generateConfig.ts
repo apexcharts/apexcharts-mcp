@@ -76,7 +76,16 @@ export function generateChartConfig(input: GenerateChartConfigInput): Record<str
 function needsCategoriesByDefault(type: string): boolean {
   // These types use a flat number array per series and rely on xaxis.categories
   // for x labels. Types like scatter/bubble/heatmap/etc. carry x in the data.
-  return type === 'line' || type === 'area' || type === 'bar' || type === 'radar';
+  // funnel/pyramid are first-class bar aliases whose stage labels come from
+  // xaxis.categories, same as bar.
+  return (
+    type === 'line' ||
+    type === 'area' ||
+    type === 'bar' ||
+    type === 'radar' ||
+    type === 'funnel' ||
+    type === 'pyramid'
+  );
 }
 
 function defaultAxisSeries(type: string): unknown[] {
@@ -176,6 +185,48 @@ function defaultAxisSeries(type: string): unknown[] {
       ];
     case 'radar':
       return [{ name: 'Skill', data: [80, 50, 30, 40, 100] }];
+    case 'violin':
+      // Each point carries a density profile ([value, weight] pairs) and,
+      // optionally, the raw sample points to overlay as jitter.
+      return [
+        {
+          name: 'Measurement',
+          data: [
+            {
+              x: 'Group A',
+              y: {
+                density: [
+                  [20, 0.02],
+                  [30, 0.08],
+                  [40, 0.18],
+                  [50, 0.1],
+                  [60, 0.03],
+                ],
+                points: [22, 31, 38, 41, 47, 52, 58],
+              },
+            },
+            {
+              x: 'Group B',
+              y: {
+                density: [
+                  [25, 0.03],
+                  [35, 0.12],
+                  [45, 0.2],
+                  [55, 0.09],
+                  [65, 0.02],
+                ],
+                points: [27, 34, 44, 48, 53, 61],
+              },
+            },
+          ],
+        },
+      ];
+    case 'funnel':
+      // Stages ordered largest-to-smallest; labels come from xaxis.categories.
+      return [{ name: 'Funnel', data: [1380, 1100, 990, 740, 548, 330] }];
+    case 'pyramid':
+      // Pyramid is a funnel ordered smallest-to-largest (wide base at bottom).
+      return [{ name: 'Pyramid', data: [330, 548, 740, 990, 1100, 1380] }];
     case 'line':
     case 'area':
     case 'bar':
@@ -186,6 +237,8 @@ function defaultAxisSeries(type: string): unknown[] {
 
 function defaultNonAxisSeries(type: string): number[] {
   if (type === 'radialBar') return [76, 67, 61];
+  // gauge is a single-value radialBar alias; one value + one label.
+  if (type === 'gauge') return [72];
   return [44, 55, 13, 43, 22];
 }
 

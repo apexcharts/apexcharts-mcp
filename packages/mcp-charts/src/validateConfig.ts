@@ -299,6 +299,22 @@ function checkSeriesDataPoints(
           });
         }
         break;
+      case 'violin':
+        // Violin points carry a density profile: y: { density: [[value, weight], ...], points?: [...] }.
+        if (isObject(point)) {
+          const y = point.y;
+          if (!isObject(y) || !Array.isArray((y as AnyObj).density)) {
+            issues.push({
+              severity: 'error',
+              rule: 'violin-missing-density',
+              path: `${path}.y`,
+              message:
+                'Violin data points require `y` to be an object with a `density` array of [value, weight] pairs.',
+              fix: 'Use { x, y: { density: [[value, weight], ...], points: [rawValue, ...] } }.',
+            });
+          }
+        }
+        break;
     }
   });
 }

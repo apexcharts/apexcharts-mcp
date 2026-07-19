@@ -71,7 +71,7 @@ The AI decides which tool to call. You don't invoke them directly.
 | **apexgrid** | `apexgrid_generate_config`, `apexgrid_validate_config`, `apexgrid_get_reference` |
 | **apexstock** | `apexstock_generate_config`, `apexstock_validate_config`, `apexstock_get_reference` |
 
-Every product exposes `generate_config` (build a valid config from a short spec) and `validate_config` (check a config against its skill's rules and return structured issues), plus `get_reference` to read that product's knowledge base on demand. The chart tools add `apexcharts_list_types` (a typed catalog of the 16 supported chart types); `apexcharts_generate_config` covers all 16 and `apexcharts_validate_config` checks against 15 rules. `apexcharts_list_products` is a meta tool that lists the products this server exposes, their tool names, and the upstream library version each product's guidance targets.
+Every product exposes `generate_config` (build a valid config from a short spec) and `validate_config` (check a config against its skill's rules and return structured issues), plus `get_reference` to read that product's knowledge base on demand. The chart tools add `apexcharts_list_types` (a typed catalog of the 20 supported chart types, including the v6 additions violin, funnel, pyramid, and gauge); `apexcharts_generate_config` covers all 20 and `apexcharts_validate_config` checks against 24 rules. `apexcharts_list_products` is a meta tool that lists the products this server exposes, their tool names, and the upstream library version each product's guidance targets.
 
 ## Limiting which products load
 

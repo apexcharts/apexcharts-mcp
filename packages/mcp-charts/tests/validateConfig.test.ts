@@ -136,6 +136,27 @@ describe('validateChartConfig — axis data point shapes', () => {
     expect(rules(r)).toContain('range-wrong-y-length');
   });
 
+  it('flags violin points missing a density profile (v6)', () => {
+    const r = validateChartConfig({
+      chart: { type: 'violin' },
+      series: [{ name: 'A', data: [{ x: 'Group A', y: 42 }] }],
+    });
+    expect(rules(r)).toContain('violin-missing-density');
+  });
+
+  it('accepts a well-formed violin point (v6)', () => {
+    const r = validateChartConfig({
+      chart: { type: 'violin' },
+      series: [
+        {
+          name: 'A',
+          data: [{ x: 'Group A', y: { density: [[20, 0.1], [30, 0.2]], points: [21, 29] } }],
+        },
+      ],
+    });
+    expect(rules(r)).not.toContain('violin-missing-density');
+  });
+
   it('flags undefined data points (use null instead)', () => {
     const r = validateChartConfig({
       chart: { type: 'line' },
