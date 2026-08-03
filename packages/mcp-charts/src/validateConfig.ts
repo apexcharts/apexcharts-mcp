@@ -85,6 +85,7 @@ export function validateChartConfig(config: unknown): ValidationResult {
   checkYaxis(config, issues);
   checkColors(config, issues);
   checkResponsive(config, issues);
+  checkPremiumType(type, issues);
 
   return finalize(issues);
 }
@@ -315,7 +316,63 @@ function checkSeriesDataPoints(
           }
         }
         break;
+      case 'sunburst':
+        // Sunburst points are hierarchy nodes: each needs an `x` label and an
+        // optional `children` array of the same node shape (recursively).
+        if (isObject(point)) {
+          if (point.x === undefined) {
+            issues.push({
+              severity: 'error',
+              rule: 'sunburst-node-missing-x',
+              path: `${path}.x`,
+              message: 'Each sunburst node needs an `x` label.',
+            });
+          }
+          checkSunburstChildren(point, path, issues);
+        }
+        break;
     }
+  });
+}
+
+/**
+ * Recursively validate a sunburst node's `children`: it must be an array, and
+ * every child must be an object carrying an `x` label (with its own children
+ * validated the same way). Leaf nodes (no `children`) are fine.
+ */
+function checkSunburstChildren(node: AnyObj, path: string, issues: ValidationIssue[]): void {
+  const children = node.children;
+  if (children === undefined) return;
+  if (!Array.isArray(children)) {
+    issues.push({
+      severity: 'error',
+      rule: 'sunburst-children-not-array',
+      path: `${path}.children`,
+      message: 'Sunburst `children` must be an array of child nodes.',
+      fix: 'Use { x, y, children: [{ x, y }] }, or omit `children` for a leaf node.',
+    });
+    return;
+  }
+  children.forEach((child, k) => {
+    const p = `${path}.children[${k}]`;
+    if (!isObject(child)) {
+      issues.push({
+        severity: 'error',
+        rule: 'sunburst-node-not-object',
+        path: p,
+        message: 'Each sunburst node must be an object with an `x` label.',
+      });
+      return;
+    }
+    if (child.x === undefined) {
+      issues.push({
+        severity: 'error',
+        rule: 'sunburst-node-missing-x',
+        path: `${p}.x`,
+        message: 'Each sunburst node needs an `x` label.',
+      });
+    }
+    checkSunburstChildren(child, p, issues);
   });
 }
 
@@ -329,6 +386,22 @@ function checkStacked(chart: AnyObj, type: string, issues: ValidationIssue[]): v
       path: 'chart.stacked',
       message: `chart.stacked: true only works with type "bar" or "area". Got "${type}".`,
       fix: 'Remove chart.stacked, or change chart.type to "bar"/"area".',
+    });
+  }
+}
+
+function checkPremiumType(type: string, issues: ValidationIssue[]): void {
+  // unit/waffle are premium chart types (v6.6+). They render, but with an
+  // "APEXCHARTS" watermark until a license is set. Warn rather than error.
+  if (type === 'unit' || type === 'waffle') {
+    issues.push({
+      severity: 'warning',
+      rule: 'premium-chart-type',
+      path: 'chart.type',
+      message:
+        `Chart type "${type}" is a premium ApexCharts feature (v6.6+). Without a valid ` +
+        'license it renders with an "APEXCHARTS" watermark.',
+      fix: 'Set a license via ApexCharts.setLicense(key) or chart.license, or pick a free type.',
     });
   }
 }

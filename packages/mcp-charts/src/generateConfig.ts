@@ -227,6 +227,32 @@ function defaultAxisSeries(type: string): unknown[] {
     case 'pyramid':
       // Pyramid is a funnel ordered smallest-to-largest (wide base at bottom).
       return [{ name: 'Pyramid', data: [330, 548, 740, 990, 1100, 1380] }];
+    case 'sunburst':
+      // Nested hierarchy: top-level nodes form the inner ring, their children
+      // the outer rings. Each node carries an `x` label; leaf nodes carry `y`.
+      return [
+        {
+          data: [
+            {
+              x: 'Technology',
+              y: 40,
+              children: [
+                { x: 'Hardware', y: 25 },
+                { x: 'Software', y: 15 },
+              ],
+            },
+            {
+              x: 'Finance',
+              y: 35,
+              children: [
+                { x: 'Banking', y: 20 },
+                { x: 'Insurance', y: 15 },
+              ],
+            },
+            { x: 'Energy', y: 25 },
+          ],
+        },
+      ];
     case 'line':
     case 'area':
     case 'bar':
@@ -239,6 +265,8 @@ function defaultNonAxisSeries(type: string): number[] {
   if (type === 'radialBar') return [76, 67, 61];
   // gauge is a single-value radialBar alias; one value + one label.
   if (type === 'gauge') return [72];
+  // unit/waffle are non-axis mark-per-value charts; a small part-to-whole set.
+  if (type === 'unit' || type === 'waffle') return [40, 30, 20, 10];
   return [44, 55, 13, 43, 22];
 }
 

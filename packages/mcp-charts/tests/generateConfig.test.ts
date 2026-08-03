@@ -104,6 +104,26 @@ describe('generateChartConfig', () => {
     expect(series[0].data[0].y.density[0].length).toBe(2);
   });
 
+  it('builds a nested hierarchy for sunburst (v6.7)', () => {
+    const config = generateChartConfig({ type: 'sunburst' });
+    expect((config.chart as { type: string }).type).toBe('sunburst');
+    const series = config.series as Array<{ data: Array<{ x: string; children?: unknown[] }> }>;
+    expect(series[0].data[0]).toHaveProperty('x');
+    expect(Array.isArray(series[0].data[0].children)).toBe(true);
+    // hierarchy carries x in the data, so no xaxis.categories
+    expect(config.xaxis).toBeUndefined();
+  });
+
+  it('builds a flat non-axis series for unit and waffle (v6.6)', () => {
+    for (const type of ['unit', 'waffle'] as const) {
+      const config = generateChartConfig({ type });
+      expect((config.chart as { type: string }).type).toBe(type);
+      const series = config.series as unknown[];
+      expect(series.every((s) => typeof s === 'number')).toBe(true);
+      expect((config.labels as string[]).length).toBe(series.length);
+    }
+  });
+
   it('generates a config that validates cleanly for every supported type', () => {
     for (const type of SUPPORTED_CHART_TYPES) {
       const config = generateChartConfig({ type });

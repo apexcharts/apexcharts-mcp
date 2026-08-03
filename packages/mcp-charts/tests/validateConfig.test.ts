@@ -157,6 +157,53 @@ describe('validateChartConfig — axis data point shapes', () => {
     expect(rules(r)).not.toContain('violin-missing-density');
   });
 
+  it('flags a sunburst node missing an x label (v6.7)', () => {
+    const r = validateChartConfig({
+      chart: { type: 'sunburst' },
+      series: [{ data: [{ y: 40, children: [{ x: 'A', y: 10 }] }] }],
+    });
+    expect(rules(r)).toContain('sunburst-node-missing-x');
+  });
+
+  it('flags sunburst children that are not an array (v6.7)', () => {
+    const r = validateChartConfig({
+      chart: { type: 'sunburst' },
+      series: [{ data: [{ x: 'Root', y: 40, children: { x: 'A' } }] }],
+    });
+    expect(rules(r)).toContain('sunburst-children-not-array');
+  });
+
+  it('flags a missing x deep in the sunburst hierarchy (v6.7)', () => {
+    const r = validateChartConfig({
+      chart: { type: 'sunburst' },
+      series: [
+        {
+          data: [{ x: 'Root', y: 40, children: [{ x: 'A', y: 20, children: [{ y: 5 }] }] }],
+        },
+      ],
+    });
+    const miss = r.issues.filter((i) => i.rule === 'sunburst-node-missing-x');
+    expect(miss).toHaveLength(1);
+    expect(miss[0].path).toBe('series[0].data[0].children[0].children[0].x');
+  });
+
+  it('accepts a well-formed sunburst hierarchy (v6.7)', () => {
+    const r = validateChartConfig({
+      chart: { type: 'sunburst' },
+      series: [
+        {
+          data: [
+            { x: 'A', y: 40, children: [{ x: 'A1', y: 25 }, { x: 'A2', y: 15 }] },
+            { x: 'B', y: 20 },
+          ],
+        },
+      ],
+    });
+    expect(r.ok).toBe(true);
+    expect(rules(r)).not.toContain('sunburst-node-missing-x');
+    expect(rules(r)).not.toContain('sunburst-children-not-array');
+  });
+
   it('flags undefined data points (use null instead)', () => {
     const r = validateChartConfig({
       chart: { type: 'line' },
@@ -173,6 +220,30 @@ describe('validateChartConfig — axis data point shapes', () => {
       series: [{ name: 'A', data: [10, null, 30] }],
     });
     expect(rules(r)).not.toContain('undefined-data-point');
+  });
+});
+
+describe('validateChartConfig — premium chart types', () => {
+  it('warns (not errors) that unit and waffle are premium', () => {
+    for (const type of ['unit', 'waffle'] as const) {
+      const r = validateChartConfig({
+        chart: { type },
+        series: [40, 30, 20, 10],
+        labels: ['A', 'B', 'C', 'D'],
+      });
+      expect(rules(r)).toContain('premium-chart-type');
+      // premium is a warning, so a well-formed config still validates ok
+      expect(r.ok).toBe(true);
+      expect(r.warnings.some((w) => w.rule === 'premium-chart-type')).toBe(true);
+    }
+  });
+
+  it('does not flag free chart types as premium', () => {
+    const r = validateChartConfig({
+      chart: { type: 'sunburst' },
+      series: [{ data: [{ x: 'A', y: 40 }] }],
+    });
+    expect(rules(r)).not.toContain('premium-chart-type');
   });
 });
 

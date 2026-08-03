@@ -13,6 +13,7 @@ const CHART_FAMILIES: ChartFamily[] = [
   'circular',
   'grid',
   'radar',
+  'unit',
 ];
 
 export function registerChartsTools(server: McpServer): void {
@@ -89,7 +90,7 @@ export function registerChartsTools(server: McpServer): void {
       title: 'List supported chart types',
       description:
         'Return every ApexCharts chart type this server supports, with name, description, ' +
-        'family (cartesian/bar/financial/circular/grid/radar), series format (axis vs non-axis), ' +
+        'family (cartesian/bar/financial/circular/grid/radar/unit), series format (axis vs non-axis), ' +
         'expected data shape, and the reference doc filename for deeper detail. ' +
         'Optionally filter by family.',
       inputSchema: {

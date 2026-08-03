@@ -12,7 +12,8 @@ export type ChartFamily =
   | 'financial'
   | 'circular'
   | 'grid'
-  | 'radar';
+  | 'radar'
+  | 'unit';
 
 export interface ChartTypeInfo {
   /** ApexCharts `chart.type` value. */
@@ -216,6 +217,37 @@ export const CHART_CATALOG: ChartTypeInfo[] = [
     referenceFile: 'circular-charts.md',
     seriesFormat: 'non-axis',
     dataFormat: 'series: [number] (single value) + labels: [string]; domain set via plotOptions.radialBar.min/max',
+  },
+  {
+    type: 'sunburst',
+    name: 'Sunburst',
+    description:
+      'Hierarchical radial chart (new in v6.7). A nested pie/donut where rings go from the center hole outward, one per hierarchy level, each child arc nested inside its parent wedge. Free.',
+    family: 'circular',
+    referenceFile: 'circular-charts.md',
+    seriesFormat: 'axis',
+    dataFormat:
+      '[{ data: [{ x, y, children?: [{ x, y, children? }] }] }] — a nested hierarchy; a leaf node carries its value in y, parent y can be omitted',
+  },
+  {
+    type: 'unit',
+    name: 'Unit',
+    description:
+      'Unit chart (new in v6.6, premium). One mark per unit of value (dot/pictogram) arranged in layouts such as grouped, packed, columns, grid, or scatter. Renders an APEXCHARTS watermark without a license.',
+    family: 'unit',
+    referenceFile: 'circular-charts.md',
+    seriesFormat: 'non-axis',
+    dataFormat: 'series: [number, ...] + labels: [string, ...]; layout via plotOptions.unit.layout',
+  },
+  {
+    type: 'waffle',
+    name: 'Waffle',
+    description:
+      'Waffle chart (new in v6.6, premium). A unit-chart alias that presets the grid layout, a part-to-whole square grid of cells. Renders an APEXCHARTS watermark without a license.',
+    family: 'unit',
+    referenceFile: 'circular-charts.md',
+    seriesFormat: 'non-axis',
+    dataFormat: 'series: [number, ...] + labels: [string, ...]',
   },
 ];
 

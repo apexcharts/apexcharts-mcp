@@ -14,14 +14,18 @@ describe('chart catalog', () => {
   it('every entry has a family that maps to a real reference file', () => {
     for (const c of CHART_CATALOG) {
       expect(c.referenceFile).toMatch(/\.md$/);
-      expect(['cartesian', 'bar', 'financial', 'circular', 'grid', 'radar']).toContain(c.family);
+      expect(['cartesian', 'bar', 'financial', 'circular', 'grid', 'radar', 'unit']).toContain(
+        c.family,
+      );
     }
   });
 
-  it('circular charts use non-axis format; everything else uses axis', () => {
+  it('uses non-axis (flat number array) format only for the pie-like and unit types', () => {
+    // Non-axis = flat number array + top-level `labels`. Everything else (incl.
+    // the axis-shaped hierarchy of sunburst) carries data in `[{ data }]` form.
+    const nonAxis = new Set(['pie', 'donut', 'polarArea', 'radialBar', 'gauge', 'unit', 'waffle']);
     for (const c of CHART_CATALOG) {
-      const expected = c.family === 'circular' ? 'non-axis' : 'axis';
-      expect(c.seriesFormat).toBe(expected);
+      expect(c.seriesFormat, `${c.type} seriesFormat`).toBe(nonAxis.has(c.type) ? 'non-axis' : 'axis');
     }
   });
 
