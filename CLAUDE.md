@@ -4,14 +4,14 @@ Project context for Claude Code working in this repo.
 
 ## What this is
 
-`apexcharts-mcp` is a Model Context Protocol server that exposes the entire ApexCharts ecosystem — apexcharts, apexgantt, apextree, apexsankey, apex-grid — as namespaced tools for AI assistants. It speaks MCP over **stdio** (no HTTP). It's distributed as a Node CLI (`bin: apexcharts-mcp`).
+`apexcharts-mcp` is a Model Context Protocol server that exposes the entire ApexCharts ecosystem — apexcharts, apexgantt, apextree, apexsankey, apex-grid, apexstock, apexmaps — as namespaced tools for AI assistants. It speaks MCP over **stdio** (no HTTP). It's distributed as a Node CLI (`bin: apexcharts-mcp`).
 
 ## Stack
 
 - TypeScript, ES modules, Node ≥ 18
 - `@modelcontextprotocol/sdk` (high-level `McpServer` API from `server/mcp.js`)
 - `zod` for tool input schemas
-- One `*-skill` npm package per product (`apexcharts-skill`, `apexgantt-skill`, `apextree-skill`, `apexsankey-skill`, `apexgrid-skill`) — each ships SKILL.md and a `references/` directory and exports `{ skillFile, referencesDir, referencePath, referenceFiles }`
+- One `*-skill` npm package per product (`apexcharts-skill`, `apexgantt-skill`, `apextree-skill`, `apexsankey-skill`, `apexgrid-skill`, `apexstock-skill`, `apexmaps-skill`) — each ships SKILL.md and a `references/` directory and exports `{ skillFile, referencesDir, referencePath, referenceFiles }`
 - `vitest` for tests
 - `tsc -b` for typechecking; `esbuild` for the publish bundle
 
@@ -38,10 +38,12 @@ packages/
       skill.ts                      # REFERENCE_INDEX + thin wrapper over core's reader
       apexcharts-skill.d.ts         # ambient module decl (skill package ships no types)
     tests/                          # vitest tests for the above
-  mcp-gantt/                        # @apexcharts-mcp/gantt — scaffold, currently registers only apexgantt_get_reference
-  mcp-tree/                         # @apexcharts-mcp/tree   — scaffold
-  mcp-sankey/                       # @apexcharts-mcp/sankey — scaffold
-  mcp-grid/                         # @apexcharts-mcp/grid   — scaffold
+  mcp-gantt/                        # @apexcharts-mcp/gantt  — generate/validate/get_reference
+  mcp-tree/                         # @apexcharts-mcp/tree   — generate/validate/get_reference
+  mcp-sankey/                       # @apexcharts-mcp/sankey — generate/validate/get_reference
+  mcp-grid/                         # @apexcharts-mcp/grid   — generate/validate/get_reference
+  mcp-stock/                        # @apexcharts-mcp/stock  — generate/validate/get_reference (OHLC-aware)
+  mcp-maps/                         # @apexcharts-mcp/maps   — generate/validate/get_reference (five series types, geo registry)
 ```
 
 Each workspace package is `private: true` — only the root `apexcharts-mcp` ships to npm, with all workspace code inlined by esbuild.
@@ -67,6 +69,12 @@ Each workspace package is `private: true` — only the root `apexcharts-mcp` shi
 | `apextree_validate_config`    | implemented | Validate an ApexTree config (every node has id/name/children, ids unique, valid options). |
 | `apexgrid_generate_config`    | implemented | Build a valid `<apex-grid>` config `{ columns, data }`, inferring columns from data when omitted. |
 | `apexgrid_validate_config`    | implemented | Validate an apex-grid config (column.key in data, type ∈ string/number/boolean, no "date"). |
+| `apexstock_get_reference`     | implemented | List or read files from the apexstock-skill knowledge base.            |
+| `apexstock_generate_config`   | implemented | Build a valid ApexStock config (OHLC series, indicators, overlays).    |
+| `apexstock_validate_config`   | implemented | Validate an ApexStock config (flat o/h/l/c keys, tuple order, x, ordering, indicators). |
+| `apexmaps_get_reference`      | implemented | List or read files from the apexmaps-skill knowledge base.             |
+| `apexmaps_generate_config`    | implemented | Build a valid ApexMaps options object (choropleth/bubble/marker/arc/line, geo registry pack, joinBy). |
+| `apexmaps_validate_config`    | implemented | Validate an ApexMaps config (geo.map present, series union shapes, arc from/to, [lon, lat] order, joinBy, scale/projection/palette names). |
 
 ### Validator rule conventions (charts)
 
@@ -83,14 +91,17 @@ Each rule has a stable `rule` id (kebab-case) so callers can pattern-match on it
 
 ## How to add a new product
 
-Unlikely (the five are fixed), but if you do:
+Rare, but it happens (stock and maps arrived after the original five). The full checklist:
 
-1. Create `packages/mcp-<id>/` mirroring an existing scaffold.
+1. Create `packages/mcp-<id>/` mirroring an existing package (mcp-sankey is the minimal complete template: package.json, tsconfig.json, src/{index,register,skill,generateConfig,validateConfig}.ts, the ambient `<skill>.d.ts`, tests/).
 2. Add the product id to the `ProductId` union in `packages/mcp-core/src/registry.ts`.
 3. Import and register it in `src/index.ts`'s `PRODUCT_MODULES`.
-4. Add it as a workspace dependency wherever needed.
+4. Add `{ "path": "./packages/mcp-<id>" }` to the `references` arrays in BOTH root `tsconfig.json` and `tsconfig.app.json` (or `tsc -b` skips it).
 5. Add the skill package as a `dependencies` entry in the root `package.json` (so the published artifact carries it).
 6. Add the skill package to the `external` list in `scripts/bundle.mjs`.
+7. Add the skill package to `SKILL_PACKAGES` in `scripts/_skill-meta.mjs` (drives check:versions and verify:skills).
+8. Update the product list in the `apexcharts_list_products` description string in `packages/mcp-core/src/meta.ts`.
+9. Update README.md (intro, tools table, valid ids, knowledge base) and this file (layout, tools table).
 
 ## Critical things to know
 
@@ -136,4 +147,4 @@ Reality check from the first run: the apexgantt skill pinned at 3.11.1 still doc
 
 ### Env-var product gating
 
-`APEXCHARTS_MCP_PRODUCTS=charts,gantt` (comma-separated, ids only) limits which products' tools are registered. Empty/unset = all five. Unknown ids log a stderr warning and are skipped; the server still starts.
+`APEXCHARTS_MCP_PRODUCTS=charts,gantt` (comma-separated, ids only) limits which products' tools are registered. Empty/unset = all seven. Unknown ids log a stderr warning and are skipped; the server still starts.

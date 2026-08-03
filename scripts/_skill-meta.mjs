@@ -15,6 +15,7 @@ export const SKILL_PACKAGES = [
   'apexsankey-skill',
   'apexgrid-skill',
   'apexstock-skill',
+  'apexmaps-skill',
 ];
 
 /**

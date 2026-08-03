@@ -12,7 +12,8 @@
     { "path": "./packages/mcp-tree" },
     { "path": "./packages/mcp-sankey" },
     { "path": "./packages/mcp-grid" },
-    { "path": "./packages/mcp-stock" }
+    { "path": "./packages/mcp-stock" },
+    { "path": "./packages/mcp-maps" }
   ],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

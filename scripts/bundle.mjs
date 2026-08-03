@@ -19,6 +19,7 @@ const external = [
   'apexsankey-skill',
   'apexgrid-skill',
   'apexstock-skill',
+  'apexmaps-skill',
 ];
 
 await build({
