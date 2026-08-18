@@ -31,9 +31,11 @@ export function registerTreeTools(server: McpServer): void {
           .optional()
           .describe('Canvas height. Default "auto".'),
         direction: z
-          .enum(['top', 'bottom', 'left', 'right'])
+          .enum(['top', 'bottom', 'left', 'right', 'radial'])
           .optional()
-          .describe('Where the root sits and which way the tree grows. Default "top".'),
+          .describe(
+            'Where the root sits and which way the tree grows. Default "top". "radial" (apextree 2.0+) puts the root at the centre with one ring per depth.',
+          ),
         contentKey: z
           .string()
           .optional()
@@ -44,7 +46,12 @@ export function registerTreeTools(server: McpServer): void {
           .union([z.literal('single'), z.literal('multi'), z.literal(false)])
           .optional()
           .describe('Selection mode. Note: enableSelection: true is INVALID — use "single" or "multi".'),
-        theme: z.enum(['light', 'dark', 'custom']).optional(),
+        theme: z
+          .string()
+          .optional()
+          .describe(
+            'Built-in "light"/"dark"/"custom", or (apextree 2.1+) the name of a theme registered on the shared family registry.',
+          ),
         edgeStyle: z.enum(['orthogonal', 'curved', 'straight']).optional(),
         siblingSpacing: z.number().optional().describe('Horizontal spacing between siblings (px).'),
         childrenSpacing: z.number().optional().describe('Vertical spacing between a node and its children (px).'),

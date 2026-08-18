@@ -29,6 +29,13 @@ describe('chart catalog', () => {
     }
   });
 
+  it('lists histogram as an axis chart in the financial (statistical) family (v6.9)', () => {
+    const info = getChartInfo('histogram');
+    expect(info?.family).toBe('financial');
+    expect(info?.seriesFormat).toBe('axis');
+    expect(info?.dataFormat).toContain('raw observations');
+  });
+
   it('getChartInfo round-trips for every type', () => {
     for (const t of SUPPORTED_CHART_TYPES) {
       expect(getChartInfo(t)?.type).toBe(t);

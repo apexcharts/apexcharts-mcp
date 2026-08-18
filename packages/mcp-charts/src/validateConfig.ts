@@ -300,6 +300,21 @@ function checkSeriesDataPoints(
           });
         }
         break;
+      case 'histogram':
+        // Histogram series carry raw observations (plain numbers); the chart
+        // does the binning. Object-form points mean pre-aggregated data, which
+        // the histogram would mis-bin.
+        if (point !== null && typeof point !== 'number') {
+          issues.push({
+            severity: 'error',
+            rule: 'histogram-data-not-raw',
+            path,
+            message:
+              'Histogram data points must be raw numeric observations (one number per event). The chart bins and counts them itself.',
+            fix: 'Pass plain numbers, e.g. data: [102, 87, 143, ...]. For pre-aggregated counts use a bar chart instead.',
+          });
+        }
+        break;
       case 'violin':
         // Violin points carry a density profile: y: { density: [[value, weight], ...], points?: [...] }.
         if (isObject(point)) {

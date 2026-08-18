@@ -118,6 +118,16 @@ export const CHART_CATALOG: ChartTypeInfo[] = [
     dataFormat: '[{ name, data: [number] }] + xaxis: { categories: [...] } for stage labels',
   },
   {
+    type: 'histogram',
+    name: 'Histogram',
+    description:
+      'Histogram (new in v6.9). Series carries raw observations (one number per event); the chart bins and counts them. Binning is configured via plotOptions.histogram (bins rule or count, binWidth, range, normalize, cumulative, overlap). Requires the apexcharts/features/stats module in tree-shaken builds.',
+    family: 'financial',
+    referenceFile: 'financial-charts.md',
+    seriesFormat: 'axis',
+    dataFormat: '[{ name, data: [number] }] — raw observations, not pre-aggregated counts',
+  },
+  {
     type: 'candlestick',
     name: 'Candlestick',
     description: 'Financial OHLC chart showing open/high/low/close per period.',

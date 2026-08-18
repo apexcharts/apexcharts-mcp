@@ -127,7 +127,7 @@ describe('validateSankeyConfig — edges', () => {
     expect(result.errors.some((e) => e.rule === 'self-loop')).toBe(true);
   });
 
-  it('detects a cycle (a → b → a)', () => {
+  it('flags a cycle (a → b → a) as a warning, not an error (supported since 1.11)', () => {
     const result = validateSankeyConfig({
       nodes: [{ id: 'a', title: 'A' }, { id: 'b', title: 'B' }],
       edges: [
@@ -135,6 +135,8 @@ describe('validateSankeyConfig — edges', () => {
         { source: 'b', target: 'a', value: 1, type: 't' },
       ],
     });
-    expect(result.errors.some((e) => e.rule === 'cycle-detected')).toBe(true);
+    expect(result.warnings.some((w) => w.rule === 'cycle-detected')).toBe(true);
+    expect(result.errors.some((e) => e.rule === 'cycle-detected')).toBe(false);
+    expect(result.ok).toBe(true);
   });
 });

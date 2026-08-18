@@ -221,6 +221,14 @@ function defaultAxisSeries(type: string): unknown[] {
           ],
         },
       ];
+    case 'histogram':
+      // Raw observations, one number per event; the chart bins and counts them.
+      return [
+        {
+          name: 'Latency (ms)',
+          data: [102, 87, 143, 91, 118, 95, 133, 110, 99, 121, 105, 88, 127, 96, 139, 84, 115, 108],
+        },
+      ];
     case 'funnel':
       // Stages ordered largest-to-smallest; labels come from xaxis.categories.
       return [{ name: 'Funnel', data: [1380, 1100, 990, 740, 548, 330] }];

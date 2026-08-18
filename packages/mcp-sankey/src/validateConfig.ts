@@ -26,8 +26,9 @@ function isObject(v: unknown): v is AnyObj {
  *   - the render payload directly: `{ nodes, edges }` (with optional `options`), or
  *   - the wrapped shape from generateSankeyConfig: `{ options, data: { nodes, edges } }`.
  *
- * Encodes the data-format rules from apexsankey-skill SKILL.md §2 (DAG, unique
- * node ids, edge value > 0, edges reference real node ids).
+ * Encodes the data-format rules from apexsankey-skill SKILL.md §2 (unique
+ * node ids, edge value > 0, edges reference real node ids; cycles are flagged
+ * as warnings since apexsankey 1.11 renders them as dashed back-edges).
  */
 export function validateSankeyConfig(config: unknown): ValidationResult {
   const issues: ValidationIssue[] = [];
@@ -239,7 +240,7 @@ function checkEdges(
         rule: 'self-loop',
         path: `${prefix}[${i}]`,
         message:
-          `Self-loop edge "${source} → ${source}". ApexSankey is a layered DAG and cannot route self-loops.`,
+          `Self-loop edge "${source} → ${source}". A flow from a node to itself cannot be routed meaningfully.`,
       });
     }
 
@@ -276,11 +277,13 @@ function detectCycle(
         const cycle = path.slice(start).concat(next).join(' → ');
         if (!reported.has(cycle)) {
           issues.push({
-            severity: 'error',
+            severity: 'warning',
             rule: 'cycle-detected',
             path: prefix,
-            message: `Cycle detected: ${cycle}. ApexSankey is a layered DAG — cycles cause layout to fail or route oddly.`,
-            fix: 'Break the cycle, or use a different visualization (e.g. apexcharts network/chord).',
+            message:
+              `Cycle detected: ${cycle}. ApexSankey 1.11+ renders cycles as dashed back-edges ` +
+              'returning upstream; on 1.10 and earlier the graph must be a DAG and layout fails.',
+            fix: 'Keep it if you target apexsankey >= 1.11 and the circular flow is intentional; otherwise break or aggregate the cycle.',
           });
           reported.add(cycle);
         }

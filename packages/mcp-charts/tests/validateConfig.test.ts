@@ -157,6 +157,23 @@ describe('validateChartConfig — axis data point shapes', () => {
     expect(rules(r)).not.toContain('violin-missing-density');
   });
 
+  it('flags object-form data points on a histogram (v6.9)', () => {
+    const r = validateChartConfig({
+      chart: { type: 'histogram' },
+      series: [{ name: 'Latency', data: [{ x: '0-50', y: 12 }] }],
+    });
+    expect(rules(r)).toContain('histogram-data-not-raw');
+  });
+
+  it('accepts raw numeric observations (with null gaps) on a histogram (v6.9)', () => {
+    const r = validateChartConfig({
+      chart: { type: 'histogram' },
+      series: [{ name: 'Latency', data: [102, 87, null, 143, 91] }],
+    });
+    expect(r.ok).toBe(true);
+    expect(rules(r)).not.toContain('histogram-data-not-raw');
+  });
+
   it('flags a sunburst node missing an x label (v6.7)', () => {
     const r = validateChartConfig({
       chart: { type: 'sunburst' },

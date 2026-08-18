@@ -114,6 +114,15 @@ describe('generateChartConfig', () => {
     expect(config.xaxis).toBeUndefined();
   });
 
+  it('builds raw-observation data for histogram with no default categories (v6.9)', () => {
+    const config = generateChartConfig({ type: 'histogram' });
+    expect((config.chart as { type: string }).type).toBe('histogram');
+    const series = config.series as Array<{ data: unknown[] }>;
+    expect(series[0].data.every((n) => typeof n === 'number')).toBe(true);
+    // bins are computed by the chart, so no placeholder xaxis.categories
+    expect(config.xaxis).toBeUndefined();
+  });
+
   it('builds a flat non-axis series for unit and waffle (v6.6)', () => {
     for (const type of ['unit', 'waffle'] as const) {
       const config = generateChartConfig({ type });

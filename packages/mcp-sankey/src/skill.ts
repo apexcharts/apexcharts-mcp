@@ -24,6 +24,11 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
     file: 'framework-wrappers.md',
     description: 'React, Vue 3, and Angular integration for ApexSankey.',
   },
+  {
+    file: 'motion-events-and-plugins.md',
+    description:
+      'update() spring/morph semantics, destroy(), the typed event bus, plugin API (pathTrace, timePlayback, drillDown), and ApexSankey.compare (1.11+).',
+  },
 ];
 
 const reader = createReferenceReader(REFERENCE_INDEX, skill);

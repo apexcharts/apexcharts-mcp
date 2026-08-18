@@ -32,9 +32,9 @@ packages/
     src/
       index.ts                      # exports { id, registerTools }
       register.ts                   # the four apexcharts_* registerTool calls
-      chartCatalog.ts               # single source of truth for the 23 supported chart types (incl. v6 violin/funnel/pyramid/gauge and v6.6/6.7 unit/waffle/sunburst)
+      chartCatalog.ts               # single source of truth for the 24 supported chart types (incl. v6 violin/funnel/pyramid/gauge, v6.6/6.7 unit/waffle/sunburst, and v6.9 histogram)
       generateConfig.ts             # pure function: chart type + options → ApexCharts options object
-      validateConfig.ts             # structural/semantic validator (24 rules)
+      validateConfig.ts             # structural/semantic validator (29 rules)
       skill.ts                      # REFERENCE_INDEX + thin wrapper over core's reader
       apexcharts-skill.d.ts         # ambient module decl (skill package ships no types)
     tests/                          # vitest tests for the above
@@ -64,7 +64,7 @@ Each workspace package is `private: true` — only the root `apexcharts-mcp` shi
 | `apexgantt_generate_config`   | implemented | Build a valid ApexGantt config (tasks, hierarchy, dependencies, milestone, baseline). |
 | `apexgantt_validate_config`   | implemented | Validate an ApexGantt config (ids, dates, dependency shape, cycles, baseline). |
 | `apexsankey_generate_config`  | implemented | Build a valid ApexSankey config split into `{ options, data: { nodes, edges } }`. |
-| `apexsankey_validate_config`  | implemented | Validate an ApexSankey config (DAG, unique node ids, edge refs, edge.value > 0). |
+| `apexsankey_validate_config`  | implemented | Validate an ApexSankey config (unique node ids, edge refs, edge.value > 0; cycles warn, supported since apexsankey 1.11). |
 | `apextree_generate_config`    | implemented | Build a valid ApexTree config with a recursive NestedNode root. |
 | `apextree_validate_config`    | implemented | Validate an ApexTree config (every node has id/name/children, ids unique, valid options). |
 | `apexgrid_generate_config`    | implemented | Build a valid `<apex-grid>` config `{ columns, data }`, inferring columns from data when omitted. |

@@ -17,7 +17,8 @@ export interface ValidationResult {
 
 type AnyObj = Record<string, unknown>;
 
-const VALID_DIRECTIONS = new Set(['top', 'bottom', 'left', 'right']);
+// 'radial' is new in apextree 2.0 (root at the centre, one ring per depth).
+const VALID_DIRECTIONS = new Set(['top', 'bottom', 'left', 'right', 'radial']);
 const VALID_EDGE_STYLES = new Set(['orthogonal', 'curved', 'straight']);
 const VALID_EDGE_COLOR_MODES = new Set(['default', 'node']);
 const VALID_THEMES = new Set(['light', 'dark', 'custom']);
@@ -88,7 +89,7 @@ function checkOptions(options: AnyObj, basePath: string, issues: ValidationIssue
         severity: 'error',
         rule: 'invalid-direction',
         path: px('direction'),
-        message: `direction must be one of top/bottom/left/right. Got ${JSON.stringify(options.direction)}.`,
+        message: `direction must be one of top/bottom/left/right/radial. Got ${JSON.stringify(options.direction)}.`,
       });
     }
   }
@@ -116,12 +117,25 @@ function checkOptions(options: AnyObj, basePath: string, issues: ValidationIssue
   }
 
   if (options.theme !== undefined) {
-    if (typeof options.theme !== 'string' || !VALID_THEMES.has(options.theme)) {
+    if (typeof options.theme !== 'string' || options.theme.length === 0) {
       issues.push({
         severity: 'error',
         rule: 'invalid-theme',
         path: px('theme'),
-        message: `theme must be one of light/dark/custom. Got ${JSON.stringify(options.theme)}.`,
+        message: `theme must be a non-empty string. Got ${JSON.stringify(options.theme)}.`,
+      });
+    } else if (!VALID_THEMES.has(options.theme)) {
+      // Since apextree 2.1 any other string names a theme registered on the
+      // shared family registry (registerTheme from @apex/commons) and behaves
+      // like 'custom' plus that theme's --apx-* tokens.
+      issues.push({
+        severity: 'warning',
+        rule: 'unregistered-theme-name',
+        path: px('theme'),
+        message:
+          `theme "${options.theme}" is not a built-in (light/dark/custom). Since apextree 2.1 it is ` +
+          'treated as a family-registry theme name and needs registerTheme to have been called with it.',
+        fix: "Use light/dark/custom, or register the theme first via registerTheme from '@apex/commons'.",
       });
     }
   }

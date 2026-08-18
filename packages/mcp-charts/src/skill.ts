@@ -17,7 +17,7 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
   {
     file: 'SKILL.md',
     description:
-      'Top-level skill index (targets ApexCharts v6): critical rules, the series data format table for all 20 chart types, formatter signatures, pitfalls, the v6 feature-platform map, and an API methods reference. Read this first.',
+      'Top-level skill index (targets ApexCharts v6): critical rules, the series data format table for all 24 chart types, formatter signatures, pitfalls, the v6 feature-platform map, and an API methods reference. Read this first.',
   },
   {
     file: 'cartesian-charts.md',
@@ -32,16 +32,17 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
   {
     file: 'financial-charts.md',
     description:
-      'Candlestick (OHLC), box plot (5-number summary), and the v6 violin (density profile): data formats, plotOptions for colors, and time axis setup.',
+      'Candlestick (OHLC), box plot (5-number summary or raw samples), the v6 violin (density profile or raw samples), and the v6.9 histogram (raw observations, binning rules): data formats, plotOptions for colors, and time axis setup.',
   },
   {
     file: 'circular-charts.md',
     description:
-      'Pie, donut, polar area, radial bar, and the v6 gauge (arc/needle, bands, ticks): flat-array series format, labels, donut center customization, and the 0-100 radialBar rule.',
+      'Pie, donut, polar area, radial bar, the v6 gauge (arc/needle, bands, ticks), the v6.7 sunburst hierarchy, and the v6.6 unit/waffle charts (incl. v6.10 unit-shapes): flat-array series format, labels, donut center customization, and the 0-100 radialBar rule.',
   },
   {
     file: 'grid-charts.md',
-    description: 'Heatmap and treemap — grid data format, color ranges, and value scaling.',
+    description:
+      'Heatmap and treemap: grid data format, color ranges, value scaling, and the v6.9 nested treemap (children to any depth).',
   },
   {
     file: 'radar-charts.md',

@@ -54,8 +54,9 @@ export function registerSankeyTools(server: McpServer): void {
       title: 'Validate ApexSankey config',
       description:
         'Check an ApexSankey config against apexsankey-skill rules (unique node ids, ' +
-        'edges reference real nodes, edge.value > 0, no self-loops, DAG / no cycles, ' +
-        'edge.type provided for grouping). Accepts either the wrapped `{ options, data }` ' +
+        'edges reference real nodes, edge.value > 0, no self-loops, cycles flagged as ' +
+        'warnings since apexsankey 1.11 renders them as dashed back-edges, edge.type ' +
+        'provided for grouping). Accepts either the wrapped `{ options, data }` ' +
         'shape from generate_config or the raw render payload `{ nodes, edges }`.',
       inputSchema: {
         config: z.unknown().describe('The ApexSankey config object to validate.'),

@@ -12,8 +12,8 @@ export interface GenerateTreeConfigInput {
   width?: number | string;
   /** Canvas height. Default 'auto'. */
   height?: number | string;
-  /** Where the root sits and which way the tree grows. */
-  direction?: 'top' | 'bottom' | 'left' | 'right';
+  /** Where the root sits and which way the tree grows. 'radial' (apextree 2.0+) centres the root with one ring per depth. */
+  direction?: 'top' | 'bottom' | 'left' | 'right' | 'radial';
   /**
    * Key on each node used as the label. Default `'name'`. Set to `'data'` to
    * activate the built-in org-card template (reads avatar/title/subtitle from
@@ -22,8 +22,8 @@ export interface GenerateTreeConfigInput {
   contentKey?: string;
   /** Selection mode. Pass `false` to disable. */
   enableSelection?: 'single' | 'multi' | false;
-  /** Built-in palette. */
-  theme?: 'light' | 'dark' | 'custom';
+  /** Built-in palette, or (apextree 2.1+) the name of a theme registered on the shared family registry. */
+  theme?: 'light' | 'dark' | 'custom' | (string & {});
   /** Connector shape. */
   edgeStyle?: 'orthogonal' | 'curved' | 'straight';
   /** Horizontal spacing between siblings (px). */

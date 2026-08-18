@@ -44,6 +44,11 @@ describe('validateTreeConfig — options', () => {
     expect(result.errors.some((e) => e.rule === 'invalid-direction')).toBe(true);
   });
 
+  it('accepts direction: "radial" (apextree 2.0)', () => {
+    const result = validateTreeConfig({ options: { direction: 'radial' }, data: okRoot });
+    expect(result.errors.some((e) => e.rule === 'invalid-direction')).toBe(false);
+  });
+
   it('flags invalid edgeStyle', () => {
     const result = validateTreeConfig({ options: { edgeStyle: 'wavy' }, data: okRoot });
     expect(result.errors.some((e) => e.rule === 'invalid-edgeStyle')).toBe(true);
@@ -54,9 +59,16 @@ describe('validateTreeConfig — options', () => {
     expect(result.errors.some((e) => e.rule === 'invalid-edgeColorMode')).toBe(true);
   });
 
-  it('flags invalid theme', () => {
-    const result = validateTreeConfig({ options: { theme: 'neon' }, data: okRoot });
+  it('flags a non-string theme as an error', () => {
+    const result = validateTreeConfig({ options: { theme: 42 }, data: okRoot });
     expect(result.errors.some((e) => e.rule === 'invalid-theme')).toBe(true);
+  });
+
+  it('treats a non-built-in theme name as a registry warning (apextree 2.1)', () => {
+    const result = validateTreeConfig({ options: { theme: 'acme' }, data: okRoot });
+    expect(result.errors.some((e) => e.rule === 'invalid-theme')).toBe(false);
+    expect(result.warnings.some((w) => w.rule === 'unregistered-theme-name')).toBe(true);
+    expect(result.ok).toBe(true);
   });
 
   it('flags enableSelection: true (must be "single"|"multi"|false)', () => {
