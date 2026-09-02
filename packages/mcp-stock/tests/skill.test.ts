@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import * as skill from 'apexcharts-skill';
-import {
-  isKnownReference,
-  readKnownFile,
-  readReference,
-  readSkill,
-  REFERENCE_INDEX,
-} from '../src/skill.js';
+import * as skill from 'apexstock-skill';
+import { isKnownReference, readKnownFile, REFERENCE_INDEX } from '../src/skill.js';
 import {
   expectEveryEntryReadable,
   expectEverythingShippedIsIndexed,
@@ -41,13 +35,7 @@ describe('reference index', () => {
 
 describe('readKnownFile', () => {
   it('reads SKILL.md', async () => {
-    const text = await readKnownFile('SKILL.md');
-    expect(text).toMatch(/ApexCharts AI Skill/);
-  });
-
-  it('reads a per-family reference', async () => {
-    const text = await readKnownFile('circular-charts.md');
-    expect(text).toMatch(/Circular Charts Reference/i);
+    expect(await readKnownFile('SKILL.md')).toMatch(/ApexStock AI Skill/);
   });
 
   it('rejects unknown filenames', async () => {
@@ -56,15 +44,5 @@ describe('readKnownFile', () => {
 
   it('rejects path traversal attempts', async () => {
     await expect(readKnownFile('../../etc/passwd')).rejects.toThrow(/Unknown reference file/);
-  });
-});
-
-describe('low-level helpers still work', () => {
-  it('readSkill returns SKILL.md', async () => {
-    expect(await readSkill()).toMatch(/ApexCharts AI Skill/);
-  });
-
-  it('readReference returns a known reference', async () => {
-    expect(await readReference('bar-charts.md')).toMatch(/Bar Charts Reference|bar/i);
   });
 });

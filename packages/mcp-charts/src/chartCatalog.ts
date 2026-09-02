@@ -118,6 +118,49 @@ export const CHART_CATALOG: ChartTypeInfo[] = [
     dataFormat: '[{ name, data: [number] }] + xaxis: { categories: [...] } for stage labels',
   },
   {
+    type: 'waterfall',
+    name: 'Waterfall',
+    description:
+      'Waterfall chart (new in v7.1). The series carries signed DELTAS and the chart accumulates the running total for you; a row flagged isSubtotal or isTotal draws the running total from zero and omits y. Connectors bridge each bar to the next, and rising/falling/total bars take their own colors from plotOptions.waterfall.colors. Renders through the bar engine (apexcharts/waterfall entry); in the default bundle.',
+    family: 'bar',
+    referenceFile: 'bar-charts.md',
+    seriesFormat: 'axis',
+    dataFormat:
+      '[{ name, data: [{ x, y }] }] where y is the signed delta, NOT a running total. A running-total row is { x, isSubtotal: true } or { x, isTotal: true } with no y.',
+  },
+  {
+    type: 'dumbbell',
+    name: 'Dumbbell',
+    description:
+      'Dumbbell chart (new in v7.1). Compares two or more measures per category, joined by a connector. One series per measure, all sharing the same x categories: do not zip values into [low, high] pairs (that is the older plotOptions.bar.isDumbbell range-bar form). Works horizontal (plotOptions.bar.horizontal) and as columns. Renders through the bar engine (apexcharts/dumbbell entry); in the default bundle.',
+    family: 'bar',
+    referenceFile: 'bar-charts.md',
+    seriesFormat: 'axis',
+    dataFormat:
+      '[{ name, data: [{ x, y }] }, ...]: ONE SERIES PER MEASURE, sharing x categories. Not [low, high] pairs.',
+  },
+  {
+    type: 'streamgraph',
+    name: 'Streamgraph',
+    description:
+      'Streamgraph (new in v7.1). Stacks the series as flowing bands around a baseline chosen for readability. The chart owns its stacking, baseline (plotOptions.streamgraph.offset) and band order (order), so do NOT set chart.stacked. Curves are monotoneCubic by default and each band is labelled inside itself. Renders through the rangeArea engine (apexcharts/streamgraph entry); in the default bundle.',
+    family: 'cartesian',
+    referenceFile: 'cartesian-charts.md',
+    seriesFormat: 'axis',
+    dataFormat: '[{ name, data: [{ x, y }] }]: same as area. Do not set chart.stacked.',
+  },
+  {
+    type: 'raincloud',
+    name: 'Raincloud',
+    description:
+      'Raincloud plot (new in v7.1, premium). Shows a distribution three ways at once: a half-violin for the shape, a box for the summary, and the observations themselves as "rain" underneath. A preset over the violin engine, so it is configured through plotOptions.violin (it presets side, box.show, box.whiskers and points.position). TIER 2: the only chart type absent from the default bundle, so it needs an explicit `import "apexcharts/raincloud"` even on the full bundle. Renders an APEXCHARTS watermark without a license.',
+    family: 'financial',
+    referenceFile: 'financial-charts.md',
+    seriesFormat: 'axis',
+    dataFormat:
+      '[{ name, data: [{ x, points: [number] }] }]: the raw sample per category; density, box and rain are derived.',
+  },
+  {
     type: 'histogram',
     name: 'Histogram',
     description:

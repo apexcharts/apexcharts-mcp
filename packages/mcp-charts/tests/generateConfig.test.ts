@@ -133,6 +133,42 @@ describe('generateChartConfig', () => {
     }
   });
 
+  it('seeds a waterfall with deltas and flagged running totals (v7.1)', () => {
+    const config = generateChartConfig({ type: 'waterfall' });
+    const data = (config.series as Array<{ data: Array<Record<string, unknown>> }>)[0].data;
+    // Steps carry a signed y; running totals carry a flag and no y.
+    expect(data.some((d) => typeof d.y === 'number' && (d.y as number) < 0)).toBe(true);
+    const totals = data.filter((d) => d.isSubtotal === true || d.isTotal === true);
+    expect(totals.length).toBeGreaterThan(0);
+    expect(totals.every((d) => d.y === undefined)).toBe(true);
+  });
+
+  it('seeds a dumbbell with one series per measure over shared categories (v7.1)', () => {
+    const config = generateChartConfig({ type: 'dumbbell' });
+    const series = config.series as Array<{ name: string; data: Array<{ x: string; y: number }> }>;
+    expect(series.length).toBeGreaterThanOrEqual(2);
+    // Same x categories in every series, and a plain numeric y (not a pair).
+    const cats = series.map((s) => s.data.map((d) => d.x).join(','));
+    expect(new Set(cats).size).toBe(1);
+    expect(series.every((s) => s.data.every((d) => typeof d.y === 'number'))).toBe(true);
+  });
+
+  it('never sets chart.stacked on a streamgraph (v7.1)', () => {
+    const config = generateChartConfig({ type: 'streamgraph', stacked: true });
+    expect((config.chart as Record<string, unknown>).stacked).toBeUndefined();
+  });
+
+  it('seeds a raincloud with a raw sample per category (v7.1)', () => {
+    const config = generateChartConfig({ type: 'raincloud' });
+    const data = (config.series as Array<{ data: Array<{ x: string; points: number[] }> }>)[0].data;
+    expect(data.every((d) => Array.isArray(d.points) && d.points.length > 0)).toBe(true);
+  });
+
+  it('applies horizontal to a dumbbell through plotOptions.bar (v7.1)', () => {
+    const config = generateChartConfig({ type: 'dumbbell', horizontal: true });
+    expect(config.plotOptions).toEqual({ bar: { horizontal: true } });
+  });
+
   it('generates a config that validates cleanly for every supported type', () => {
     for (const type of SUPPORTED_CHART_TYPES) {
       const config = generateChartConfig({ type });

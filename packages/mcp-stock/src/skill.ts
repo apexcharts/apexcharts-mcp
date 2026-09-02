@@ -13,24 +13,34 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
       'Top-level ApexStock skill index: the ApexCharts-global requirement, OHLC data format, overlays-vs-oscillators, the render/update/appendData/destroy lifecycle, and framework integration. Read this first.',
   },
   {
+    file: 'analysis.md',
+    description:
+      'The 0.5.0 financial-analysis workspace: getRangeStats field by field, getDrawdown and the drawdown pane, per-pane heights, measureRange with the analysis panel and ApexCharts measure-ruler interop, comparison v2 (instrument alignment, the four baseline policies, the five modes, the benchmark role, getComparisonStats), getDataAt, price-scale modes, and the headless ApexStock.stats namespace.',
+  },
+  {
     file: 'data-format.md',
     description:
-      'OHLC point shape ({ x, y: [o,h,l,c], v? }), chart types (candlestick / ohlc / line / area / heikinashi), timestamp handling, and normalization behavior.',
+      'OHLC point shape ({ x, y: [o,h,l,c], v? }), chart types (candlestick / ohlc / line / area / heikinashi), timestamp handling, normalization behavior, and the apexcharts ^7.1.0 peer requirement.',
   },
   {
     file: 'indicators.md',
     description:
-      'Full overlay and oscillator list with keys, per-indicator config (period / stdDev), overlays-stack-vs-one-oscillator rule, and the pure calculate* helpers.',
+      'Full overlay and oscillator list with keys, per-indicator config (period / stdDev), the stacking rules, the 0.5.0 drawdown analysis pane and per-pane heightRatio, and the pure calculate* helpers.',
+  },
+  {
+    file: 'state-and-export.md',
+    description:
+      'The v2 getState/setState shape field by field, exactly what is and is not captured (price-line callbacks and comparison instrument data) and how to restore each, the unified export() over png/svg/pdf/csv/json with the include selector, and ApexStock.sync for linking independent charts.',
   },
   {
     file: 'streaming-and-aggregation.md',
     description:
-      'appendData for live data: view / maxPoints / updateLast options, tick-to-bar and forming-candle recipes, and ApexStock.aggregateOHLC with the accepted INTERVALS.',
+      'appendData for live data: view / maxPoints / updateLast options, tick-to-bar and forming-candle recipes, rangeChange (once per gesture) vs the 0.5.0 rangeChanging (per frame), and ApexStock.aggregateOHLC with the accepted INTERVALS.',
   },
   {
     file: 'trading-overlays.md',
     description:
-      'Order / stop-loss / take-profit / alert price lines, the PriceLineConfig fields, drag / close / cross callbacks, and the drawing tools.',
+      'Order / stop-loss / take-profit / alert price lines, the PriceLineConfig fields, drag / close / cross callbacks, the drawing tools (incl. 0.5.0 reshapeable two-anchor drawings), and the 0.5.0 chart furniture: event markers, the on-chart data legend, and toolbar customization.',
   },
   {
     file: 'framework-wrappers.md',
@@ -38,7 +48,7 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
   },
   {
     file: 'theming.md',
-    description: 'Light/dark modes and the scoped --apexstock-* CSS custom-property token system with an override recipe.',
+    description: 'Light/dark modes, the 0.5.0 named theme-preset pack and registerTheme, and the scoped --apexstock-* CSS custom-property token system with an override recipe.',
   },
 ];
 

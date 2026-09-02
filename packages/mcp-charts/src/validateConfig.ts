@@ -81,11 +81,13 @@ export function validateChartConfig(config: unknown): ValidationResult {
 
   checkSeries(config, info.type, info.seriesFormat, issues);
   checkStacked(chart, type, issues);
+  checkDumbbellSeriesCount(type, config.series, issues);
   checkTooltip(config, issues);
   checkYaxis(config, issues);
   checkColors(config, issues);
   checkResponsive(config, issues);
   checkPremiumType(type, issues);
+  checkTier2Type(type, issues);
 
   return finalize(issues);
 }
@@ -316,19 +318,79 @@ function checkSeriesDataPoints(
         }
         break;
       case 'violin':
-        // Violin points carry a density profile: y: { density: [[value, weight], ...], points?: [...] }.
+        // A violin point takes EITHER a precomputed density profile
+        // (y: { density: [[value, weight], ...] }) or, since v6.9, only the raw
+        // sample (points: [number], no y) with the KDE derived for you.
         if (isObject(point)) {
           const y = point.y;
-          if (!isObject(y) || !Array.isArray((y as AnyObj).density)) {
+          const hasDensity = isObject(y) && Array.isArray((y as AnyObj).density);
+          const hasRawSample = Array.isArray(point.points);
+          if (!hasDensity && !hasRawSample) {
             issues.push({
               severity: 'error',
               rule: 'violin-missing-density',
               path: `${path}.y`,
               message:
-                'Violin data points require `y` to be an object with a `density` array of [value, weight] pairs.',
-              fix: 'Use { x, y: { density: [[value, weight], ...], points: [rawValue, ...] } }.',
+                'Violin data points require either `y` as an object with a `density` array of [value, weight] pairs, or (v6.9+) a raw sample in `points`.',
+              fix: 'Use { x, y: { density: [[value, weight], ...] } }, or { x, points: [rawValue, ...] } with the stats feature loaded.',
             });
           }
+        }
+        break;
+      case 'raincloud':
+        // Raincloud takes the raw sample per category; the density, the box and
+        // the rain are all derived from it.
+        if (isObject(point) && !Array.isArray(point.points)) {
+          issues.push({
+            severity: 'error',
+            rule: 'raincloud-missing-points',
+            path: `${path}.points`,
+            message:
+              'Raincloud data points require a `points` array of raw observations for the category.',
+            fix: 'Use { x: "Control", points: [3.1, 4.7, 2.9, ...] }. A precomputed y.summary is honored for the box, but the density and rain need the sample.',
+          });
+        }
+        break;
+      case 'waterfall':
+        // The series carries signed deltas; the chart accumulates. A row that
+        // shows the running total is flagged instead of carrying a `y`.
+        if (isObject(point)) {
+          const isRunningTotal = point.isSubtotal === true || point.isTotal === true;
+          const hasY = point.y !== undefined && point.y !== null;
+          if (!isRunningTotal && !hasY) {
+            issues.push({
+              severity: 'error',
+              rule: 'waterfall-missing-value',
+              path,
+              message:
+                'A waterfall row needs either a `y` (the signed delta) or an `isSubtotal`/`isTotal` flag.',
+              fix: 'Use { x, y: -2786000 } for a step, or { x, isSubtotal: true } / { x, isTotal: true } for a running total.',
+            });
+          } else if (isRunningTotal && hasY) {
+            issues.push({
+              severity: 'warning',
+              rule: 'waterfall-total-with-value',
+              path,
+              message:
+                'An `isSubtotal`/`isTotal` row is measured for you, so its `y` is ignored.',
+              fix: 'Drop the `y` from the running-total row.',
+            });
+          }
+        }
+        break;
+      case 'dumbbell':
+        // chart.type 'dumbbell' takes one series per measure with plain { x, y }
+        // points. A [lo, hi] pair is the older plotOptions.bar.isDumbbell
+        // range-bar form, which is a different chart.
+        if (isObject(point) && Array.isArray(point.y)) {
+          issues.push({
+            severity: 'error',
+            rule: 'dumbbell-paired-y',
+            path: `${path}.y`,
+            message:
+              'chart.type "dumbbell" takes one series per measure with a plain numeric `y`, not a [low, high] pair.',
+            fix: 'Split the pair into one series per measure: [{ name: "2020", data: [{ x, y }] }, { name: "2025", data: [{ x, y }] }]. To keep paired data, use chart.type "rangeBar" with plotOptions.bar.isDumbbell instead.',
+          });
         }
         break;
       case 'sunburst':
@@ -394,7 +456,21 @@ function checkSunburstChildren(node: AnyObj, path: string, issues: ValidationIss
 // --- Other rules ----------------------------------------------------------
 
 function checkStacked(chart: AnyObj, type: string, issues: ValidationIssue[]): void {
-  if (chart.stacked === true && type !== 'bar' && type !== 'area') {
+  if (chart.stacked !== true) return;
+  // A streamgraph stacks by construction and owns its own baseline and band
+  // order, so chart.stacked is not just unsupported, it is a category error.
+  if (type === 'streamgraph') {
+    issues.push({
+      severity: 'warning',
+      rule: 'stacked-on-streamgraph',
+      path: 'chart.stacked',
+      message:
+        'A streamgraph stacks by construction. chart.stacked does nothing; the baseline and band order come from plotOptions.streamgraph.offset and .order.',
+      fix: "Remove chart.stacked. For an ordinary stacked area on the zero line, use plotOptions.streamgraph.offset: 'zero'.",
+    });
+    return;
+  }
+  if (type !== 'bar' && type !== 'area') {
     issues.push({
       severity: 'error',
       rule: 'stacked-on-unsupported-type',
@@ -405,16 +481,48 @@ function checkStacked(chart: AnyObj, type: string, issues: ValidationIssue[]): v
   }
 }
 
+function checkDumbbellSeriesCount(
+  type: string,
+  series: unknown,
+  issues: ValidationIssue[],
+): void {
+  // chart.type 'dumbbell' compares measures ACROSS series: one series per
+  // measure. A single series has nothing to join a connector to.
+  if (type !== 'dumbbell' || !Array.isArray(series) || series.length >= 2) return;
+  issues.push({
+    severity: 'warning',
+    rule: 'dumbbell-single-series',
+    path: 'series',
+    message:
+      'chart.type "dumbbell" compares two or more measures per category, one series per measure. With a single series there is nothing to connect.',
+    fix: 'Add a series per measure, each with the same x categories.',
+  });
+}
+
+function checkTier2Type(type: string, issues: ValidationIssue[]): void {
+  // Every chart type ships in the default v7 bundle except raincloud, which is
+  // Tier 2: present in the package, absent from every bundle.
+  if (type !== 'raincloud') return;
+  issues.push({
+    severity: 'warning',
+    rule: 'tier2-chart-type',
+    path: 'chart.type',
+    message:
+      'Chart type "raincloud" is not in the default ApexCharts bundle (Tier 2, v7.1). Without its module the chart warns in the console and does not render.',
+    fix: "Add `import 'apexcharts/raincloud'` (or `apexcharts/features/raincloud`) on top of the default bundle, or `dist/features/raincloud.js` after apexcharts.js from a script tag.",
+  });
+}
+
 function checkPremiumType(type: string, issues: ValidationIssue[]): void {
   // unit/waffle are premium chart types (v6.6+). They render, but with an
   // "APEXCHARTS" watermark until a license is set. Warn rather than error.
-  if (type === 'unit' || type === 'waffle') {
+  if (type === 'unit' || type === 'waffle' || type === 'raincloud') {
     issues.push({
       severity: 'warning',
       rule: 'premium-chart-type',
       path: 'chart.type',
       message:
-        `Chart type "${type}" is a premium ApexCharts feature (v6.6+). Without a valid ` +
+        `Chart type "${type}" is a premium ApexCharts feature. Without a valid ` +
         'license it renders with an "APEXCHARTS" watermark.',
       fix: 'Set a license via ApexCharts.setLicense(key) or chart.license, or pick a free type.',
     });

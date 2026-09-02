@@ -59,7 +59,9 @@ export function generateChartConfig(input: GenerateChartConfigInput): Record<str
   // Axis chart
   config.series = input.series ?? defaultAxisSeries(info.type);
 
-  if (info.type === 'bar' && input.horizontal !== undefined) {
+  // dumbbell renders through the bar engine, so its rows/columns switch is the
+  // same plotOptions.bar.horizontal flag.
+  if ((info.type === 'bar' || info.type === 'dumbbell') && input.horizontal !== undefined) {
     config.plotOptions = { bar: { horizontal: input.horizontal } };
   }
 
@@ -227,6 +229,72 @@ function defaultAxisSeries(type: string): unknown[] {
         {
           name: 'Latency (ms)',
           data: [102, 87, 143, 91, 118, 95, 133, 110, 99, 121, 105, 88, 127, 96, 139, 84, 115, 108],
+        },
+      ];
+    case 'waterfall':
+      // The series carries signed DELTAS; the chart accumulates. A running-total
+      // row carries isSubtotal/isTotal and no `y` at all.
+      return [
+        {
+          name: 'Operating income',
+          data: [
+            { x: 'Net revenue', y: 8786000 },
+            { x: 'Cost of sales', y: -2786000 },
+            { x: 'Gross profit', isSubtotal: true },
+            { x: 'Operating expenses', y: -1786000 },
+            { x: 'Operating income', isTotal: true },
+          ],
+        },
+      ];
+    case 'dumbbell':
+      // One series per measure, sharing x categories. NOT [low, high] pairs.
+      return [
+        {
+          name: '2020',
+          data: [
+            { x: 'Backend', y: 92 },
+            { x: 'Frontend', y: 78 },
+            { x: 'Data', y: 64 },
+          ],
+        },
+        {
+          name: '2025',
+          data: [
+            { x: 'Backend', y: 118 },
+            { x: 'Frontend', y: 96 },
+            { x: 'Data', y: 103 },
+          ],
+        },
+      ];
+    case 'streamgraph':
+      // Same shape as area. The chart owns the stacking, so no chart.stacked.
+      return [
+        {
+          name: 'Drama',
+          data: [
+            { x: '2024-01-01', y: 32 },
+            { x: '2024-02-01', y: 41 },
+            { x: '2024-03-01', y: 37 },
+          ],
+        },
+        {
+          name: 'Comedy',
+          data: [
+            { x: '2024-01-01', y: 18 },
+            { x: '2024-02-01', y: 26 },
+            { x: '2024-03-01', y: 31 },
+          ],
+        },
+      ];
+    case 'raincloud':
+      // The raw sample per category; density, box and rain are all derived.
+      return [
+        {
+          name: 'Weight gain',
+          data: [
+            { x: 'Control', points: [3.1, 4.7, 2.9, 5.2, 3.8, 4.1, 3.4, 4.9] },
+            { x: 'Treatment', points: [6.4, 7.1, 5.8, 6.9, 7.6, 6.2, 7.3, 5.9] },
+          ],
         },
       ];
     case 'funnel':

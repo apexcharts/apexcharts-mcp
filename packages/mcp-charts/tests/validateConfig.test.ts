@@ -341,6 +341,117 @@ describe('validateChartConfig — other rules', () => {
   });
 });
 
+describe('validateChartConfig: v7.1 chart types', () => {
+  it('accepts a violin point supplying only a raw sample (v6.9)', () => {
+    const r = validateChartConfig({
+      chart: { type: 'violin' },
+      series: [{ name: 'A', data: [{ x: 'Group A', points: [21, 29, 33] }] }],
+    });
+    expect(rules(r)).not.toContain('violin-missing-density');
+  });
+
+  it('flags a raincloud point with no raw sample', () => {
+    const r = validateChartConfig({
+      chart: { type: 'raincloud' },
+      series: [{ name: 'A', data: [{ x: 'Control', y: 42 }] }],
+    });
+    expect(rules(r)).toContain('raincloud-missing-points');
+  });
+
+  it('warns that raincloud is not in the default bundle (Tier 2)', () => {
+    const r = validateChartConfig({
+      chart: { type: 'raincloud' },
+      series: [{ name: 'A', data: [{ x: 'Control', points: [1, 2, 3] }] }],
+    });
+    expect(rules(r)).toContain('tier2-chart-type');
+    expect(rules(r)).toContain('premium-chart-type');
+    expect(r.ok).toBe(true);
+  });
+
+  it('flags a waterfall row with neither a value nor a total flag', () => {
+    const r = validateChartConfig({
+      chart: { type: 'waterfall' },
+      series: [{ name: 'W', data: [{ x: 'Revenue' }] }],
+    });
+    expect(rules(r)).toContain('waterfall-missing-value');
+  });
+
+  it('warns when a waterfall running-total row also carries a value', () => {
+    const r = validateChartConfig({
+      chart: { type: 'waterfall' },
+      series: [{ name: 'W', data: [{ x: 'Gross profit', isSubtotal: true, y: 6000 }] }],
+    });
+    expect(rules(r)).toContain('waterfall-total-with-value');
+  });
+
+  it('accepts a waterfall mixing steps and running totals', () => {
+    const r = validateChartConfig({
+      chart: { type: 'waterfall' },
+      series: [
+        {
+          name: 'W',
+          data: [
+            { x: 'Revenue', y: 8786 },
+            { x: 'Cost', y: -2786 },
+            { x: 'Gross profit', isSubtotal: true },
+            { x: 'Operating income', isTotal: true },
+          ],
+        },
+      ],
+    });
+    expect(r.errors).toEqual([]);
+  });
+
+  it('flags [low, high] pairs on a dumbbell (that is the range-bar form)', () => {
+    const r = validateChartConfig({
+      chart: { type: 'dumbbell' },
+      series: [
+        { name: 'Gap', data: [{ x: 'Backend', y: [92, 118] }] },
+        { name: 'Other', data: [{ x: 'Backend', y: [80, 100] }] },
+      ],
+    });
+    expect(rules(r)).toContain('dumbbell-paired-y');
+  });
+
+  it('warns when a dumbbell has only one series', () => {
+    const r = validateChartConfig({
+      chart: { type: 'dumbbell' },
+      series: [{ name: '2020', data: [{ x: 'Backend', y: 92 }] }],
+    });
+    expect(rules(r)).toContain('dumbbell-single-series');
+    expect(r.ok).toBe(true);
+  });
+
+  it('accepts a two-series dumbbell', () => {
+    const r = validateChartConfig({
+      chart: { type: 'dumbbell' },
+      series: [
+        { name: '2020', data: [{ x: 'Backend', y: 92 }] },
+        { name: '2025', data: [{ x: 'Backend', y: 118 }] },
+      ],
+    });
+    expect(r.issues).toEqual([]);
+  });
+
+  it('warns about chart.stacked on a streamgraph instead of erroring', () => {
+    const r = validateChartConfig({
+      chart: { type: 'streamgraph', stacked: true },
+      series: [{ name: 'Drama', data: [{ x: '2024-01-01', y: 32 }] }],
+    });
+    expect(rules(r)).toContain('stacked-on-streamgraph');
+    expect(rules(r)).not.toContain('stacked-on-unsupported-type');
+    expect(r.ok).toBe(true);
+  });
+
+  it('still errors on chart.stacked for other unsupported types', () => {
+    const r = validateChartConfig({
+      chart: { type: 'line', stacked: true },
+      series: [{ name: 'A', data: [1, 2, 3] }],
+    });
+    expect(rules(r)).toContain('stacked-on-unsupported-type');
+  });
+});
+
 describe('validateChartConfig — result shape', () => {
   it('separates errors and warnings', () => {
     const r = validateChartConfig({

@@ -31,6 +31,21 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
     description: 'Lifecycle events (taskClick, taskDrag, viewChange, etc.) and how to wire them up.',
   },
   {
+    file: 'editing.md',
+    description:
+      'Editing (3.12.0+): the CRUD API (addTask / updateTask / removeTask and friends) with its container events and synchronous veto hooks, undo/redo via `history`, the user-facing interaction toggles, the working `calendar`, and sub-day scheduling through `snapUnit` / `snapValue`. Every mutating call is recorded in the undo history.',
+  },
+  {
+    file: 'grid.md',
+    description:
+      'Turning the task list into a real data grid (3.13.0 wave, shipped in 3.14.0): hierarchy-preserving sorting, the quick filter and advanced filter builder plus their runtime API, grouping, and column auto-size / resize / reorder. All of it is view-only and never mutates the task tree, WBS codes, or task data.',
+  },
+  {
+    file: 'interaction.md',
+    description:
+      'Opt-in interaction features (3.13.0 wave and 3.15.0): UI-state persistence as a versioned, SSR-safe `GanttUiState` snapshot (zoom, scroll, collapse, selection, sort, filter, column widths and order), draw-to-create via `enableDrawTask`, scroll-to-task, and SVG / PNG / PDF export. All additive; existing charts are unaffected unless enabled.',
+  },
+  {
     file: 'framework-wrappers.md',
     description: 'React, Vue 3, and Angular integration — props, refs, and update patterns.',
   },

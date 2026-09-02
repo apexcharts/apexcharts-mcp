@@ -32,7 +32,7 @@ packages/
     src/
       index.ts                      # exports { id, registerTools }
       register.ts                   # the four apexcharts_* registerTool calls
-      chartCatalog.ts               # single source of truth for the 24 supported chart types (incl. v6 violin/funnel/pyramid/gauge, v6.6/6.7 unit/waffle/sunburst, and v6.9 histogram)
+      chartCatalog.ts               # single source of truth for the 28 supported chart types (incl. v6 violin/funnel/pyramid/gauge, v6.6/6.7 unit/waffle/sunburst, v6.9 histogram, and v7.1 waterfall/dumbbell/streamgraph/raincloud)
       generateConfig.ts             # pure function: chart type + options → ApexCharts options object
       validateConfig.ts             # structural/semantic validator (29 rules)
       skill.ts                      # REFERENCE_INDEX + thin wrapper over core's reader
@@ -124,6 +124,8 @@ The MCP server communicates via JSON-RPC on stdout. **Never `console.log` from s
 ### Knowledge base sources
 
 Reference docs come from the individual `*-skill` npm packages and are NOT vendored here. To refresh them, bump the skill version in the root `package.json` and `npm install`. Source of truth for each lives in its own repo (apexcharts/apexcharts-skill, apexcharts/apexgantt-skill, …). Open doc PRs there, not here.
+
+Each product's `tests/skill.test.ts` asserts two invariants against the installed skill package, via the shared helpers in `packages/mcp-core/tests/helpers/reference-index.ts`: **every index entry resolves and reads** (catches an upstream rename, or a dependency not yet bumped) and **every doc the package ships is indexed** (catches a doc added upstream that no `get_reference` call can reach). Both have caught real drift; when a skill bump renames or adds a reference file, these fail loudly instead of breaking at runtime. Add the pair for any new product.
 
 Always read knowledge-base files through the per-product `skill.ts` helpers (which use `@apexcharts-mcp/core`'s `createReferenceReader`) — never hardcode `node_modules/*-skill/...` paths, since that breaks under pnpm strict mode and yarn PnP.
 
