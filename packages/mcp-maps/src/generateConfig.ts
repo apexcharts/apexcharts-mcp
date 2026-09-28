@@ -1,7 +1,10 @@
 /**
  * Input shape for apexmaps_generate_config.
  */
-export type MapsSeriesType = 'choropleth' | 'bubble' | 'marker' | 'arc' | 'line';
+export type MapsSeriesType = 'choropleth' | 'bubble' | 'marker' | 'arc' | 'line' | 'hexbin';
+
+/** Series types whose colour comes from `scale` (the value scale) rather than `colorScale`. */
+const VALUE_SCALE_TYPES: ReadonlySet<MapsSeriesType> = new Set(['choropleth', 'hexbin']);
 
 export interface GenerateMapsConfigInput {
   /** Series type. Default 'choropleth' (also ApexMaps' own default). */
@@ -12,7 +15,14 @@ export interface GenerateMapsConfigInput {
   seriesName?: string;
   /** Data array in the datum shape of `type`. If omitted, a small placeholder dataset is generated. */
   data?: unknown;
-  /** Join spec: 'field', ['geoField', 'dataField'], or { geo, data }. Only emitted when provided. */
+  /**
+   * Join spec: 'field', ['geoField', 'dataField'], or { geo, data }. Only emitted when provided.
+   *
+   * Passed through as given, including for 'hexbin', which has no joinBy: a hexbin bins
+   * points and never regions. Emitting it anyway keeps the contradiction visible, where
+   * dropping it silently would hide the fact that the caller wanted a choropleth.
+   * validate_config reports it as `hexbin-joinby`.
+   */
   joinBy?: unknown;
   /** Palette name for the series scale (choropleth) or theme (other types). */
   palette?: string;
@@ -54,7 +64,7 @@ export function generateMapsConfig(input: GenerateMapsConfigInput): Record<strin
   series.data = usingPlaceholder ? placeholderData(type) : input.data;
 
   if (input.palette) {
-    if (type === 'choropleth') {
+    if (VALUE_SCALE_TYPES.has(type)) {
       series.scale = { palette: input.palette };
     } else {
       series.colorScale = { palette: input.palette };
@@ -64,6 +74,33 @@ export function generateMapsConfig(input: GenerateMapsConfigInput): Record<strin
   const config: Record<string, unknown> = { geo, series: [series] };
   if (input.themeMode) config.theme = { mode: input.themeMode };
   return config;
+}
+
+/**
+ * Points for a placeholder hexbin.
+ *
+ * Deliberately 60 and not the half-dozen the other placeholders use: ApexMaps'
+ * own dev advice calls a hexbin of fewer than 50 points the wrong mark for the
+ * data, so a shorter list would generate a config the library then argues with.
+ * Spread across inhabited longitudes because the default pack is
+ * `world/countries`, and a tight local cluster is one cell at world zoom.
+ *
+ * Generated from a fixed seed rather than written out: a literal 60-row table
+ * would be the longest thing in this file and no more meaningful. No `value`
+ * field, because the default aggregate is 'count', which needs none.
+ */
+function hexbinPlaceholder(): unknown[] {
+  let seed = 20240917;
+  const next = (): number => {
+    // Park-Miller LCG. Any deterministic source would do; this one is three lines.
+    seed = (seed * 48271) % 2147483647;
+    return seed / 2147483647;
+  };
+  const round2 = (n: number): number => Math.round(n * 100) / 100;
+  return Array.from({ length: 60 }, () => ({
+    lon: round2(-130 + next() * 280),
+    lat: round2(-40 + next() * 100),
+  }));
 }
 
 function placeholderData(type: MapsSeriesType): unknown[] {
@@ -100,6 +137,8 @@ function placeholderData(type: MapsSeriesType): unknown[] {
         { from: [-0.13, 51.51], to: [103.85, 1.29], value: 95, name: 'London to Singapore' },
         { from: [-46.63, -23.55], to: [13.4, 52.52], value: 60, name: 'Sao Paulo to Berlin' },
       ];
+    case 'hexbin':
+      return hexbinPlaceholder();
     case 'line':
       return [
         {

@@ -12,15 +12,18 @@ export function registerMapsTools(server: McpServer): void {
       title: 'Generate ApexMaps config',
       description:
         'Build a minimal valid ApexMaps options object for a geographic visualization. ' +
-        'Supports the five series types: choropleth (default), bubble, marker, arc, line. ' +
+        'Supports the six series types: choropleth (default), bubble, marker, arc, line, hexbin. ' +
         'Geometry comes from the built-in registry (e.g. "world/countries", "us", "eu/nuts2"), ' +
         'so no GeoJSON is needed. Generates a small placeholder dataset when data is omitted. ' +
         'Use the result with `new ApexMaps(el, options)` then `await map.render()`.',
       inputSchema: {
         type: z
-          .enum(['choropleth', 'bubble', 'marker', 'arc', 'line'])
+          .enum(['choropleth', 'bubble', 'marker', 'arc', 'line', 'hexbin'])
           .optional()
-          .describe('Series type. Default "choropleth".'),
+          .describe(
+            'Series type. Default "choropleth". "hexbin" bins points into a hex lattice ' +
+              '(density); it takes points, never region-keyed rows.',
+          ),
         map: z
           .string()
           .optional()
@@ -34,8 +37,8 @@ export function registerMapsTools(server: McpServer): void {
           .optional()
           .describe(
             'Data array in the datum shape of `type`: choropleth rows `{ <key>, value }`, ' +
-              'bubble/marker `{ lon, lat, ... }`, arc `{ from, to }`, line `{ path: [[lon,lat],...] }`. ' +
-              'Omit for a placeholder dataset.',
+              'bubble/marker `{ lon, lat, ... }`, arc `{ from, to }`, line `{ path: [[lon,lat],...] }`, ' +
+              'hexbin `{ lon, lat, value? }`. Omit for a placeholder dataset.',
           ),
         joinBy: z
           .union([z.string(), z.tuple([z.string(), z.string()]), z.record(z.string())])
@@ -73,7 +76,8 @@ export function registerMapsTools(server: McpServer): void {
       description:
         'Check an ApexMaps options object against apexmaps-skill rules: geo.map present, ' +
         'known series types, arc from/to endpoints, line paths, bubble/marker coordinates ' +
-        'or joinBy, [lon, lat] ordering, joinBy shape, null (not undefined) for missing ' +
+        'or joinBy, hexbin point positions and aggregates (a hexbin has no joinBy), ' +
+        '[lon, lat] ordering, joinBy shape, null (not undefined) for missing ' +
         'values, and known scale / projection / palette names. Returns structured issues ' +
         'with stable rule ids, severity, path, and a fix when there is a one-shot remedy.',
       inputSchema: {

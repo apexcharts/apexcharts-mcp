@@ -190,6 +190,97 @@ describe('validateMapsConfig', () => {
     ).toEqual([]);
   });
 
+  describe('hexbin', () => {
+    const POINTS = [
+      { lon: 2.35, lat: 48.86 },
+      { lon: 2.4, lat: 48.9 },
+    ];
+
+    it('accepts a minimal valid hexbin, as a series type and as chart.type', () => {
+      // The regression this whole rule set came from: hexbin shipped in
+      // apexmaps 0.4.0 and the validator still enumerated five series types, so
+      // a valid hexbin config came back as an error.
+      expect(validateMapsConfig({ ...GEO, series: [{ type: 'hexbin', data: POINTS }] }).ok).toBe(true);
+      expect(rules({ ...GEO, chart: { type: 'hexbin' }, series: [{ data: POINTS }] })).toEqual([]);
+    });
+
+    it('hexbin-joinby', () => {
+      const result = validateMapsConfig({
+        ...GEO,
+        series: [{ type: 'hexbin', joinBy: ['iso_a3', 'code'], data: POINTS }],
+      });
+      expect(result.errors.map((i) => i.rule)).toContain('hexbin-joinby');
+    });
+
+    it('hexbin-position-missing, and coordinates count as a position', () => {
+      expect(rules({ ...GEO, series: [{ type: 'hexbin', data: [{ value: 3 }] }] })).toContain(
+        'hexbin-position-missing',
+      );
+      expect(
+        rules({ ...GEO, series: [{ type: 'hexbin', data: [{ coordinates: [2.35, 48.86] }] }] }),
+      ).toEqual([]);
+      // A joinBy cannot stand in for a position here, the way it can for bubble.
+      expect(
+        rules({ ...GEO, series: [{ type: 'hexbin', joinBy: 'iso_a3', data: [{ value: 3 }] }] }),
+      ).toContain('hexbin-position-missing');
+    });
+
+    it('lonlat-out-of-range applies to both position shapes', () => {
+      expect(rules({ ...GEO, series: [{ type: 'hexbin', data: [{ lon: 48.86, lat: 200 }] }] })).toContain(
+        'lonlat-out-of-range',
+      );
+      expect(
+        rules({ ...GEO, series: [{ type: 'hexbin', data: [{ coordinates: [48.86, 200] }] }] }),
+      ).toContain('lonlat-out-of-range');
+    });
+
+    it('unknown-hexbin-aggregate / unknown-hexbin-orientation', () => {
+      expect(
+        rules({ ...GEO, series: [{ type: 'hexbin', aggregate: 'median', data: POINTS }] }),
+      ).toContain('unknown-hexbin-aggregate');
+      expect(
+        rules({ ...GEO, series: [{ type: 'hexbin', orientation: 'sideways', data: POINTS }] }),
+      ).toContain('unknown-hexbin-orientation');
+      for (const aggregate of ['count', 'sum', 'mean', 'min', 'max']) {
+        expect(
+          rules({ ...GEO, series: [{ type: 'hexbin', aggregate, minCount: 5, data: [{ ...POINTS[0], value: 1 }] }] }),
+        ).not.toContain('unknown-hexbin-aggregate');
+      }
+    });
+
+    it('hexbin-aggregate-needs-value, honouring valueField', () => {
+      expect(rules({ ...GEO, series: [{ type: 'hexbin', aggregate: 'sum', data: POINTS }] })).toContain(
+        'hexbin-aggregate-needs-value',
+      );
+      // count needs no value field at all, which is why it is the default.
+      expect(rules({ ...GEO, series: [{ type: 'hexbin', aggregate: 'count', data: POINTS }] })).toEqual([]);
+      expect(
+        rules({
+          ...GEO,
+          series: [{ type: 'hexbin', aggregate: 'sum', data: [{ ...POINTS[0], value: 12 }] }],
+        }),
+      ).toEqual([]);
+      expect(
+        rules({
+          ...GEO,
+          series: [
+            { type: 'hexbin', aggregate: 'sum', valueField: 'depth', data: [{ ...POINTS[0], depth: 12 }] },
+          ],
+        }),
+      ).toEqual([]);
+    });
+
+    it('hexbin-mean-mincount', () => {
+      const withValues = [{ ...POINTS[0], value: 1 }];
+      expect(rules({ ...GEO, series: [{ type: 'hexbin', aggregate: 'mean', data: withValues }] })).toContain(
+        'hexbin-mean-mincount',
+      );
+      expect(
+        rules({ ...GEO, series: [{ type: 'hexbin', aggregate: 'mean', minCount: 5, data: withValues }] }),
+      ).toEqual([]);
+    });
+  });
+
   it('responsive-not-array', () => {
     expect(rules({ ...GEO, responsive: {} })).toContain('responsive-not-array');
   });

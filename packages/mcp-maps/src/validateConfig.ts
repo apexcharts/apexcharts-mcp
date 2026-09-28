@@ -17,7 +17,13 @@ export interface ValidationResult {
 
 type AnyObj = Record<string, unknown>;
 
-const SERIES_TYPES = ['choropleth', 'bubble', 'marker', 'arc', 'line'] as const;
+const SERIES_TYPES = ['choropleth', 'bubble', 'marker', 'arc', 'line', 'hexbin'] as const;
+
+/** What a hexbin cell's colour encodes (apexmaps HexbinSeriesOptions.aggregate). */
+const HEXBIN_AGGREGATES = ['count', 'sum', 'mean', 'min', 'max'] as const;
+
+/** Hexbin cell orientation: vertex up, or a vertex to the side. */
+const HEXBIN_ORIENTATIONS = ['pointy', 'flat'] as const;
 
 const SCALE_TYPES = [
   'quantile',
@@ -290,6 +296,92 @@ function checkJoinBy(joinBy: unknown, path: string, issues: ValidationIssue[]): 
   });
 }
 
+/**
+ * Hexbin-specific rules.
+ *
+ * A hexbin is the one series that bins its input rather than drawing it, so the
+ * mistakes it invites are different from every other type's: keying rows to
+ * regions (which wants a choropleth), asking for an aggregate the points carry
+ * no number for, and averaging over bins that may hold a single point.
+ */
+function checkHexbin(s: AnyObj, path: string, issues: ValidationIssue[]): void {
+  // Deliberately absent from the library, not merely unimplemented: binning
+  // region centroids answers a question about how the regions were drawn, and
+  // the answer changes when the map does.
+  if (s.joinBy !== undefined) {
+    issues.push({
+      severity: 'error',
+      rule: 'hexbin-joinby',
+      path: `${path}.joinBy`,
+      message:
+        'A hexbin series has no joinBy: it bins point positions, and joining rows to regions ' +
+        'would bin the geometry instead of the data.',
+      fix: "Use type: 'choropleth' for rows keyed to regions, or give each row lon/lat.",
+    });
+  }
+
+  const aggregate = s.aggregate;
+  const isKnownAggregate =
+    aggregate === undefined ||
+    HEXBIN_AGGREGATES.includes(aggregate as (typeof HEXBIN_AGGREGATES)[number]);
+  if (!isKnownAggregate) {
+    issues.push({
+      severity: 'error',
+      rule: 'unknown-hexbin-aggregate',
+      path: `${path}.aggregate`,
+      message: `Unknown aggregate "${String(aggregate)}". Supported: ${HEXBIN_AGGREGATES.join(', ')}.`,
+    });
+  }
+
+  if (
+    s.orientation !== undefined &&
+    !HEXBIN_ORIENTATIONS.includes(s.orientation as (typeof HEXBIN_ORIENTATIONS)[number])
+  ) {
+    issues.push({
+      severity: 'error',
+      rule: 'unknown-hexbin-orientation',
+      path: `${path}.orientation`,
+      message: `Unknown orientation "${String(s.orientation)}". Supported: ${HEXBIN_ORIENTATIONS.join(', ')}.`,
+    });
+  }
+
+  // Every aggregate except 'count' reads valueField (default 'value'), so data
+  // carrying no number under that field colours every cell as no-data.
+  if (isKnownAggregate && aggregate !== undefined && aggregate !== 'count') {
+    const field = typeof s.valueField === 'string' ? s.valueField : 'value';
+    const data = s.data;
+    if (Array.isArray(data) && data.length > 0) {
+      const hasNumber = data.some((d) => isObject(d) && typeof d[field] === 'number');
+      if (!hasNumber) {
+        issues.push({
+          severity: 'warning',
+          rule: 'hexbin-aggregate-needs-value',
+          path: `${path}.aggregate`,
+          message:
+            `aggregate '${String(aggregate)}' reads each point's "${field}", and no datum carries ` +
+            `a number there, so every cell reports null.`,
+          fix: `Add a numeric "${field}" to the data, set valueField to the field that has it, or use aggregate: 'count'.`,
+        });
+      }
+    }
+  }
+
+  if (aggregate === 'mean') {
+    const minCount = s.minCount;
+    if (minCount === undefined || (typeof minCount === 'number' && minCount <= 1)) {
+      issues.push({
+        severity: 'warning',
+        rule: 'hexbin-mean-mincount',
+        path: `${path}.minCount`,
+        message:
+          "aggregate 'mean' with minCount 1 (the default) lets a cell holding one point read as " +
+          'loudly as a cell holding a hundred.',
+        fix: 'Raise minCount so thin cells are dropped, or switch to count.',
+      });
+    }
+  }
+}
+
 function checkSeries(s: unknown, i: number, defaultType: string, issues: ValidationIssue[]): void {
   const path = `series[${i}]`;
   if (!isObject(s)) {
@@ -316,6 +408,7 @@ function checkSeries(s: unknown, i: number, defaultType: string, issues: Validat
   checkJoinBy(s.joinBy, `${path}.joinBy`, issues);
   checkScale(s.scale, `${path}.scale`, issues);
   checkScale(s.colorScale, `${path}.colorScale`, issues);
+  if (type === 'hexbin') checkHexbin(s, path, issues);
 
   if (s.normalizeBy !== undefined && typeof s.normalizeBy !== 'string') {
     issues.push({
@@ -438,6 +531,31 @@ function checkDatum(
         } else if (isLonLat(v) && lonLatOutOfRange(v)) {
           pushOutOfRange(`${path}.${end}`, issues);
         }
+      }
+      break;
+    }
+    case 'hexbin': {
+      // Same [lon, lat] rule, but two differences from bubble/marker: a hexbin
+      // datum may carry its position as a `coordinates` pair (data that arrived
+      // as GeoJSON), and joinBy can never stand in for a position here, because
+      // a hexbin has no joinBy at all.
+      const lon = typeof datum.lon === 'number' ? datum.lon : datum.lng;
+      const lat = datum.lat;
+      const coords = datum.coordinates;
+      if (typeof lon === 'number' && typeof lat === 'number') {
+        if (lonLatOutOfRange([lon, lat])) pushOutOfRange(path, issues);
+      } else if (isLonLat(coords)) {
+        if (lonLatOutOfRange(coords)) pushOutOfRange(`${path}.coordinates`, issues);
+      } else {
+        issues.push({
+          severity: 'error',
+          rule: 'hexbin-position-missing',
+          path,
+          message:
+            'A hexbin datum needs a position: lon + lat, or a [lon, lat] coordinates pair. ' +
+            'Points with no usable position are dropped before binning.',
+          fix: 'Add `lon` and `lat` (lng is accepted for lon), or `coordinates: [lon, lat]`.',
+        });
       }
       break;
     }

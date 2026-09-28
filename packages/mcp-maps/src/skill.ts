@@ -10,7 +10,7 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
   {
     file: 'SKILL.md',
     description:
-      'Top-level ApexMaps skill index: the five series types (choropleth, bubble, marker, arc, line), ' +
+      'Top-level ApexMaps skill index: the six series types (choropleth, bubble, marker, arc, line, hexbin), ' +
       'geometry registry, joins, lifecycle, public API, pitfalls. Read this first.',
   },
   {

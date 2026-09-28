@@ -20,7 +20,7 @@ describe('generateMapsConfig', () => {
   });
 
   it('emits the series type for non-choropleth series', () => {
-    for (const type of ['bubble', 'marker', 'arc', 'line'] as const) {
+    for (const type of ['bubble', 'marker', 'arc', 'line', 'hexbin'] as const) {
       const config = generateMapsConfig({ type });
       const series = (config.series as Record<string, unknown>[])[0];
       expect(series.type).toBe(type);
@@ -81,9 +81,40 @@ describe('generateMapsConfig', () => {
     expect((full.series as Record<string, unknown>[])[0].name).toBe('Sales');
   });
 
+  it('hexbin placeholder is a point cloud big enough for the mark', () => {
+    const data = (generateMapsConfig({ type: 'hexbin' }).series as { data: Record<string, unknown>[] }[])[0]
+      .data;
+    // ApexMaps' dev advice calls a hexbin under 50 points the wrong mark, so the
+    // placeholder has to clear that bar rather than model the mistake.
+    expect(data.length).toBeGreaterThanOrEqual(50);
+    for (const d of data) {
+      expect(typeof d.lon).toBe('number');
+      expect(typeof d.lat).toBe('number');
+      expect(Math.abs(d.lon as number)).toBeLessThanOrEqual(180);
+      expect(Math.abs(d.lat as number)).toBeLessThanOrEqual(90);
+      // Default aggregate is 'count', which reads no value field at all.
+      expect(d.value).toBeUndefined();
+    }
+  });
+
+  it('hexbin placeholder is deterministic', () => {
+    const first = generateMapsConfig({ type: 'hexbin' });
+    const second = generateMapsConfig({ type: 'hexbin' });
+    expect(first).toEqual(second);
+  });
+
+  it('hexbin colours through scale, like a choropleth, not colorScale', () => {
+    const series = (generateMapsConfig({ type: 'hexbin', palette: 'viridis' }).series as Record<
+      string,
+      unknown
+    >[])[0];
+    expect(series.scale).toEqual({ palette: 'viridis' });
+    expect(series.colorScale).toBeUndefined();
+  });
+
   it('generated output validates clean', async () => {
     const { validateMapsConfig } = await import('../src/validateConfig.js');
-    for (const type of ['choropleth', 'bubble', 'marker', 'arc', 'line'] as const) {
+    for (const type of ['choropleth', 'bubble', 'marker', 'arc', 'line', 'hexbin'] as const) {
       const result = validateMapsConfig(generateMapsConfig({ type }));
       expect(result.ok).toBe(true);
       expect(result.issues).toEqual([]);
