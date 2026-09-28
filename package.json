@@ -26,6 +26,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check:versions": "node scripts/check-versions.mjs",
+    "check:chart-types": "node scripts/check-chart-types.mjs",
+    "check:surface-delta": "node scripts/check-surface-delta.mjs",
     "verify:skills": "node scripts/verify-skills.mjs",
     "typecheck": "tsc -b",
     "clean": "tsc -b --clean && rm -rf dist",

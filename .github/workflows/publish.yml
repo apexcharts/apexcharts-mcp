@@ -64,6 +64,14 @@ jobs:
       - run: npm install -g npm@11
       - run: npm install
 
+      # The knowledge base ships inside this artifact, so a chart type the
+      # library has that the bundled skill never mentions, or that this repo's
+      # own tools reject, is a defect in what we are about to publish rather
+      # than a docs chore. No source skill checkouts exist here, so this reads
+      # the INSTALLED skill packages: exactly the copies that ship.
+      - name: "Gate: every shipped chart type is documented and supported"
+        run: npm run check:chart-types
+
       - name: Publish to npm
         run: npm publish --provenance --tag ${{ steps.check.outputs.tag }}
 

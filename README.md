@@ -73,7 +73,7 @@ The AI decides which tool to call. You don't invoke them directly.
 | **apexstock** | `apexstock_generate_config`, `apexstock_validate_config`, `apexstock_get_reference` |
 | **apexmaps** | `apexmaps_generate_config`, `apexmaps_validate_config`, `apexmaps_get_reference` |
 
-Every product exposes `generate_config` (build a valid config from a short spec) and `validate_config` (check a config against its skill's rules and return structured issues), plus `get_reference` to read that product's knowledge base on demand. The chart tools add `apexcharts_list_types` (a typed catalog of the 28 supported chart types, including the v6 additions violin, funnel, pyramid, gauge, unit, waffle, sunburst and histogram, and the v7.1 additions waterfall, dumbbell, streamgraph and raincloud); `apexcharts_generate_config` covers all 28 and `apexcharts_validate_config` checks against 36 rules. `apexcharts_list_products` is a meta tool that lists the products this server exposes, their tool names, and the upstream library version each product's guidance targets.
+Every product exposes `generate_config` (build a valid config from a short spec) and `validate_config` (check a config against its skill's rules and return structured issues), plus `get_reference` to read that product's knowledge base on demand. The chart tools add `apexcharts_list_types` (a typed catalog of the 29 supported chart types, including the v6 additions violin, funnel, pyramid, gauge, unit, waffle, sunburst and histogram, the v7.1 additions waterfall, dumbbell, streamgraph and raincloud, and the v7.6 addition icicle); `apexcharts_generate_config` covers all 29 and `apexcharts_validate_config` checks against 39 rules. `apexcharts_list_products` is a meta tool that lists the products this server exposes, their tool names, and the upstream library version each product's guidance targets.
 
 ## Limiting which products load
 
@@ -157,6 +157,15 @@ npm run dev        # tsc -b --watch
 npm test           # vitest
 npm run typecheck  # tsc -b
 npm run clean      # remove all dist/ output
+```
+
+Keeping the bundled knowledge base honest (see [CLAUDE.md](CLAUDE.md) for the full loop):
+
+```bash
+npm run check:versions       # is any upstream library ahead of what its skill was verified against?
+npm run check:chart-types    # hard gate: every chart type the library ships is documented and supported
+npm run check:surface-delta  # what shipped since the pin that the docs never mention
+npm run verify:skills        # signal: doc examples referencing names the types don't have
 ```
 
 ## License

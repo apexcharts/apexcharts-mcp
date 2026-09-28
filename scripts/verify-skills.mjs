@@ -29,15 +29,14 @@
  *   node scripts/verify-skills.mjs --json     # machine-readable
  *   node scripts/verify-skills.mjs charts     # one product (skill pkg prefix)
  */
-import { readFile, readdir, mkdir, writeFile, access } from 'node:fs/promises';
-import { execFile } from 'node:child_process';
+import { readFile, readdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
 
 import { SKILL_PACKAGES, loadSkillSource, readAllDocs, bareVersion } from './_skill-meta.mjs';
+import { ensureInstalled } from './_lib-cache.mjs';
+import { selectSkills } from './_surface.mjs';
 
-const run = promisify(execFile);
 const jsonOnly = process.argv.includes('--json');
 const filter = process.argv.slice(2).find((a) => !a.startsWith('-'));
 
@@ -50,29 +49,6 @@ const KEY_STOPLIST = new Set([
   'type','default','const','let','var','function','return','class','extends','import','export',
   'true','false','null','undefined','this','new','async','await','if','else','for','while','case',
 ]);
-
-async function exists(p) {
-  try { await access(p); return true; } catch { return false; }
-}
-
-/** Install <npm>@<version> into the isolated cache prefix if not already there. */
-async function ensureInstalled(npm, version) {
-  const installDir = join(CACHE, 'node_modules', npm);
-  const pkgPath = join(installDir, 'package.json');
-  if (await exists(pkgPath)) {
-    const cur = JSON.parse(await readFile(pkgPath, 'utf8')).version;
-    if (cur === version) return installDir;
-  }
-  await mkdir(CACHE, { recursive: true });
-  const rootPkg = join(CACHE, 'package.json');
-  if (!(await exists(rootPkg))) {
-    await writeFile(rootPkg, JSON.stringify({ name: 'skill-verify-cache', private: true }) + '\n');
-  }
-  await run('npm', ['install', '--prefix', CACHE, '--no-audit', '--no-fund', '--silent', `${npm}@${version}`], {
-    timeout: 120_000,
-  });
-  return installDir;
-}
 
 /** Recursively read and concatenate every *.d.ts under a directory. */
 async function collectDts(dir) {
@@ -192,7 +168,14 @@ function verifySkill(skill, surface, blocks) {
   };
 }
 
-const targets = SKILL_PACKAGES.filter((p) => !filter || p.startsWith(filter));
+// Shared with the surface checks, so `charts` means the same product to all
+// three layers. An argument that matches nothing is an error, not an empty
+// report that reads like a clean run.
+const targets = selectSkills(SKILL_PACKAGES, filter);
+if (!targets.length) {
+  console.error(`No skill matches "${filter}". Known: ${SKILL_PACKAGES.join(', ')}`);
+  process.exit(2);
+}
 
 const results = [];
 for (const pkg of targets) {
@@ -202,7 +185,7 @@ for (const pkg of targets) {
     r.npm = skill.npm;
     r.version = bareVersion(skill.libraryVersion);
     if (!skill.npm || !r.version) throw new Error('SKILL.md missing metadata.npm or metadata.library_version');
-    const installDir = await ensureInstalled(skill.npm, r.version);
+    const installDir = await ensureInstalled(skill.npm, r.version, CACHE);
     const dts = await collectDts(installDir);
     if (!dts.trim()) throw new Error(`no .d.ts found in ${skill.npm}@${r.version}`);
     const surface = buildTypeSurface(dts);
