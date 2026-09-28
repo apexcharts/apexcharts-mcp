@@ -217,6 +217,17 @@ export const CHART_CATALOG: ChartTypeInfo[] = [
     dataFormat: '[{ data: [{ x, y: number }] }] — y is the area/value',
   },
   {
+    type: 'icicle',
+    name: 'Icicle',
+    description:
+      "Hierarchical partition chart (new in v7.6): one band per depth level, each child sized inside its parent's extent. The sunburst's layout in cartesian coordinates, so labels stay horizontal and same-depth siblings line up across branches; plotOptions.icicle.direction 'up' is the flame-graph orientation. Free, but OPT-IN: the default bundle carries no icicle class, so it needs `import ApexCharts from 'apexcharts/icicle'` (loading the full apexcharts.js does not help).",
+    family: 'grid',
+    referenceFile: 'grid-charts.md',
+    seriesFormat: 'axis',
+    dataFormat:
+      '[{ data: [{ x, y, children?: [{ x, y, children? }] }] }] — the same nested hierarchy a sunburst takes; a branch may omit y and be the sum of its children',
+  },
+  {
     type: 'radar',
     name: 'Radar',
     description: 'Multivariate chart drawn on radial axes, one axis per category.',

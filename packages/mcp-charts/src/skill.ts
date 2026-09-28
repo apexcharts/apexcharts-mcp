@@ -17,7 +17,7 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
   {
     file: 'SKILL.md',
     description:
-      'Top-level skill index (targets ApexCharts v7): critical rules, the series data format table for all 28 chart types, formatter signatures, pitfalls, the feature-platform map with its bundle tiers, and an API methods reference. Read this first. Leads with the v7.0 breaking change that nine features left the default bundle.',
+      'Top-level skill index (targets ApexCharts v7): critical rules, the series data format table for all 29 chart types, formatter signatures, pitfalls, the feature-platform map with its bundle tiers, and an API methods reference. Read this first. Leads with the v7.0 breaking change that nine features left the default bundle.',
   },
   {
     file: 'cartesian-charts.md',
@@ -42,7 +42,7 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
   {
     file: 'grid-charts.md',
     description:
-      'Heatmap and treemap: grid data format, color ranges, value scaling, and the v6.9 nested treemap (children to any depth).',
+      'Heatmap, treemap and the v7.6 icicle: grid data format, color ranges, value scaling, the v7.2 heatmap cell shapes (hexagon honeycomb, circle, diamond), the v6.9 nested treemap (children to any depth), and the icicle partition layout (opt-in import, plotOptions.icicle, flame-graph direction).',
   },
   {
     file: 'radar-charts.md',

@@ -304,8 +304,10 @@ function defaultAxisSeries(type: string): unknown[] {
       // Pyramid is a funnel ordered smallest-to-largest (wide base at bottom).
       return [{ name: 'Pyramid', data: [330, 548, 740, 990, 1100, 1380] }];
     case 'sunburst':
-      // Nested hierarchy: top-level nodes form the inner ring, their children
-      // the outer rings. Each node carries an `x` label; leaf nodes carry `y`.
+    case 'icicle':
+      // One nested hierarchy, two layouts: the sunburst spends it radially
+      // (inner ring outward), the icicle along a straight axis (one band per
+      // depth). Each node carries an `x` label; leaf nodes carry `y`.
       return [
         {
           data: [

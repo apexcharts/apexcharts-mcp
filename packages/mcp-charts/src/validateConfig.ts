@@ -394,18 +394,21 @@ function checkSeriesDataPoints(
         }
         break;
       case 'sunburst':
-        // Sunburst points are hierarchy nodes: each needs an `x` label and an
-        // optional `children` array of the same node shape (recursively).
+      case 'icicle':
+        // Both are partition charts over the same tree: each point is a
+        // hierarchy node needing an `x` label and an optional `children` array
+        // of the same node shape (recursively). A branch may omit `y` and be
+        // the sum of its children, so `y` is not required here.
         if (isObject(point)) {
           if (point.x === undefined) {
             issues.push({
               severity: 'error',
-              rule: 'sunburst-node-missing-x',
+              rule: `${type}-node-missing-x`,
               path: `${path}.x`,
-              message: 'Each sunburst node needs an `x` label.',
+              message: `Each ${type} node needs an \`x\` label.`,
             });
           }
-          checkSunburstChildren(point, path, issues);
+          checkHierarchyChildren(point, path, type as 'sunburst' | 'icicle', issues);
         }
         break;
     }
@@ -413,19 +416,31 @@ function checkSeriesDataPoints(
 }
 
 /**
- * Recursively validate a sunburst node's `children`: it must be an array, and
+ * Recursively validate a hierarchy node's `children`: it must be an array, and
  * every child must be an object carrying an `x` label (with its own children
  * validated the same way). Leaf nodes (no `children`) are fine.
+ *
+ * Shared by sunburst and icicle, which resolve the same tree in two layouts.
+ * The rule ids stay per type (`sunburst-node-missing-x`, `icicle-node-missing-x`)
+ * rather than becoming one `hierarchy-*` family: the existing ids are a stable
+ * contract callers pattern-match on, and renaming them to share an
+ * implementation would break that for a refactor's convenience.
  */
-function checkSunburstChildren(node: AnyObj, path: string, issues: ValidationIssue[]): void {
+function checkHierarchyChildren(
+  node: AnyObj,
+  path: string,
+  type: 'sunburst' | 'icicle',
+  issues: ValidationIssue[],
+): void {
+  const Label = type === 'icicle' ? 'Icicle' : 'Sunburst';
   const children = node.children;
   if (children === undefined) return;
   if (!Array.isArray(children)) {
     issues.push({
       severity: 'error',
-      rule: 'sunburst-children-not-array',
+      rule: `${type}-children-not-array`,
       path: `${path}.children`,
-      message: 'Sunburst `children` must be an array of child nodes.',
+      message: `${Label} \`children\` must be an array of child nodes.`,
       fix: 'Use { x, y, children: [{ x, y }] }, or omit `children` for a leaf node.',
     });
     return;
@@ -435,21 +450,21 @@ function checkSunburstChildren(node: AnyObj, path: string, issues: ValidationIss
     if (!isObject(child)) {
       issues.push({
         severity: 'error',
-        rule: 'sunburst-node-not-object',
+        rule: `${type}-node-not-object`,
         path: p,
-        message: 'Each sunburst node must be an object with an `x` label.',
+        message: `Each ${type} node must be an object with an \`x\` label.`,
       });
       return;
     }
     if (child.x === undefined) {
       issues.push({
         severity: 'error',
-        rule: 'sunburst-node-missing-x',
+        rule: `${type}-node-missing-x`,
         path: `${p}.x`,
-        message: 'Each sunburst node needs an `x` label.',
+        message: `Each ${type} node needs an \`x\` label.`,
       });
     }
-    checkSunburstChildren(child, p, issues);
+    checkHierarchyChildren(child, p, type, issues);
   });
 }
 

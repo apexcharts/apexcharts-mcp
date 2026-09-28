@@ -114,6 +114,17 @@ describe('generateChartConfig', () => {
     expect(config.xaxis).toBeUndefined();
   });
 
+  it('builds the same nested hierarchy for icicle (v7.6)', () => {
+    const config = generateChartConfig({ type: 'icicle' });
+    expect((config.chart as { type: string }).type).toBe('icicle');
+    const series = config.series as Array<{ data: Array<{ x: string; children?: unknown[] }> }>;
+    expect(series[0].data[0]).toHaveProperty('x');
+    expect(Array.isArray(series[0].data[0].children)).toBe(true);
+    expect(config.xaxis).toBeUndefined();
+    // Same tree as the sunburst: one hierarchy, two layouts.
+    expect(config.series).toEqual(generateChartConfig({ type: 'sunburst' }).series);
+  });
+
   it('builds raw-observation data for histogram with no default categories (v6.9)', () => {
     const config = generateChartConfig({ type: 'histogram' });
     expect((config.chart as { type: string }).type).toBe('histogram');

@@ -22,6 +22,15 @@ src/
   index.ts                          # bootstrap: reads APEXCHARTS_MCP_PRODUCTS, registers selected products, connects stdio
 scripts/
   bundle.mjs                        # esbuild bundle step — externalizes SDK / zod / *-skill packages
+  _skill-meta.mjs                   # shared: SKILL.md frontmatter, semver, skill package/source loading
+  _lib-cache.mjs                    # shared: install one exact upstream version into an isolated cache
+  _surface.mjs                      # shared: per-product type-walk config, surface extraction, evidence tiers
+  extract-api-surface.cjs           # VENDORED from the website repo: the .d.ts walk. Do not edit here.
+  check-versions.mjs                # layer 1: is any upstream library ahead of its skill's pin?
+  verify-skills.mjs                 # layer 2: doc examples referencing names the types don't have (signal)
+  skill-review.md                   # layer 3: agent-review prompt template (authoritative)
+  check-chart-types.mjs             # layer 4: hard gate, every shipped chart type is documented
+  check-surface-delta.mjs           # layer 5: what shipped since the pin that the docs never mention
 packages/
   mcp-core/                         # @apexcharts-mcp/core (private)
     src/
@@ -32,9 +41,9 @@ packages/
     src/
       index.ts                      # exports { id, registerTools }
       register.ts                   # the four apexcharts_* registerTool calls
-      chartCatalog.ts               # single source of truth for the 28 supported chart types (incl. v6 violin/funnel/pyramid/gauge, v6.6/6.7 unit/waffle/sunburst, v6.9 histogram, and v7.1 waterfall/dumbbell/streamgraph/raincloud)
+      chartCatalog.ts               # single source of truth for the 29 supported chart types (incl. v6 violin/funnel/pyramid/gauge, v6.6/6.7 unit/waffle/sunburst, v6.9 histogram, v7.1 waterfall/dumbbell/streamgraph/raincloud, and v7.6 icicle)
       generateConfig.ts             # pure function: chart type + options → ApexCharts options object
-      validateConfig.ts             # structural/semantic validator (29 rules)
+      validateConfig.ts             # structural/semantic validator (39 rules)
       skill.ts                      # REFERENCE_INDEX + thin wrapper over core's reader
       apexcharts-skill.d.ts         # ambient module decl (skill package ships no types)
     tests/                          # vitest tests for the above
@@ -43,7 +52,7 @@ packages/
   mcp-sankey/                       # @apexcharts-mcp/sankey — generate/validate/get_reference
   mcp-grid/                         # @apexcharts-mcp/grid   — generate/validate/get_reference
   mcp-stock/                        # @apexcharts-mcp/stock  — generate/validate/get_reference (OHLC-aware)
-  mcp-maps/                         # @apexcharts-mcp/maps   — generate/validate/get_reference (five series types, geo registry)
+  mcp-maps/                         # @apexcharts-mcp/maps   — generate/validate/get_reference (six series types, geo registry)
 ```
 
 Each workspace package is `private: true` — only the root `apexcharts-mcp` ships to npm, with all workspace code inlined by esbuild.
@@ -73,8 +82,8 @@ Each workspace package is `private: true` — only the root `apexcharts-mcp` shi
 | `apexstock_generate_config`   | implemented | Build a valid ApexStock config (OHLC series, indicators, overlays).    |
 | `apexstock_validate_config`   | implemented | Validate an ApexStock config (flat o/h/l/c keys, tuple order, x, ordering, indicators). |
 | `apexmaps_get_reference`      | implemented | List or read files from the apexmaps-skill knowledge base.             |
-| `apexmaps_generate_config`    | implemented | Build a valid ApexMaps options object (choropleth/bubble/marker/arc/line, geo registry pack, joinBy). |
-| `apexmaps_validate_config`    | implemented | Validate an ApexMaps config (geo.map present, series union shapes, arc from/to, [lon, lat] order, joinBy, scale/projection/palette names). |
+| `apexmaps_generate_config`    | implemented | Build a valid ApexMaps options object (choropleth/bubble/marker/arc/line/hexbin, geo registry pack, joinBy). |
+| `apexmaps_validate_config`    | implemented | Validate an ApexMaps config (geo.map present, series union shapes, arc from/to, hexbin positions/aggregate, [lon, lat] order, joinBy, scale/projection/palette names). |
 
 ### Validator rule conventions (charts)
 
@@ -146,6 +155,33 @@ Detecting that a release happened (above) is separate from confirming the docs a
 2. **Agent review (authoritative)** — `scripts/skill-review.md` is a ready-to-fill prompt template: spawn one agent per skill, feed it the source docs + the pinned library's `.d.ts` + the mechanical signal, and it reports doc claims the types contradict, with judgment the regex can't make (e.g. recognizing that `app.use()` is Vue, or that an event API moved to the container element). This is what actually earns the pin.
 
 Reality check from the first run: the apexgantt skill pinned at 3.11.1 still documented the removed `ViewMode` / `viewMode` API (replaced by `pixelsPerDay`) — i.e. pinning to "latest" without this review can assert a compatibility that's false. Always review before trusting a pin; if docs can't be fixed yet, pin to the last version they actually match.
+
+#### The reverse direction: what the library has that the docs never mention
+
+Everything above starts from what the skill docs SAY and tests it against the types. That direction cannot see an omission, because an omission makes no claim. apexcharts 7.6.0 added the `icicle` chart type; the skill said nothing false about it, so `check:versions` reported only "behind" and `verify:skills` was correctly silent, while an agent holding the skill could not produce an icicle chart at all. Two checks run the other way, starting from the library's shipped `.d.ts`:
+
+3. **Chart-type gate (hard)**: `npm run check:chart-types` (`scripts/check-chart-types.mjs`) extracts the string-literal union behind `chart.type` at the pinned version and requires every member to be covered in **two** places, exiting 1 on a miss, with deliberately no accept flag:
+   - **the skill docs**, so an agent knows the type exists and how to write it;
+   - **this repo's own hardcoded lists** (`SURFACE_CONFIG.catalogs`), so the tools accept it. These are separate failures with the same symptom for the caller. apexmaps 0.4.0 shipped a `hexbin` series, the skill documented it in three files, and three lists in here still enumerated five types, so `apexmaps_validate_config` returned a hard error for a config the library renders. A docs-only gate passes that.
+
+   Catalog lists are read by anchored AST lookup (a named declaration, or the `z.enum()` under a named input-schema property), never by scanning the file for the words: a type name appearing in a nearby description string is not the type being supported. A drift in either direction fails, because a catalog entry the library does not have means the tools emit something that cannot render.
+
+   Applies to the two products that enumerate their kinds this way: apexcharts (`ApexChart.type`, 29 types at 7.6.1) and apexmaps (`Series.type`, 6 series types). `--at <version>` gates against a different version, which is how it is retro-tested: `check:chart-types charts --at 7.6.0` against the pre-7.6 docs reports `icicle` missing from both the docs and `chartCatalog.ts` and exits 1, while `--at 7.5.1` passes.
+
+   **It enforces the publish order**, which is the one thing to know before a release. The gate reads the source skill repos locally and the **installed** skill packages in CI (`npm run check:chart-types` is a step in `publish.yml` before `npm publish`). So after adding a chart type to the catalog, CI fails with "not in the library" until the matching skill is published and bumped here: a build whose `list_types` advertises a type its own bundled knowledge base cannot explain does not ship. Publish the skill, bump it in `package.json`, `npm install`, then re-run.
+4. **Surface delta (report)**: `npm run check:surface-delta` (`scripts/check-surface-delta.mjs`) extracts the surface at the pinned version AND at latest, diffs four dimensions (chart types, methods, option paths, API types + members added to existing types), and reports what appeared that the docs never mention. Scoped to the delta, not to total coverage: a skill is a curated brief, so it never fails on a delta and a human decides what earns a mention. `--from`/`--to` retro-test a past release pair. Exits non-zero only when it could not measure.
+
+Evidence is graded in both, never collapsed to a boolean: `declared`/`called`/`path` (the docs write it and an agent can copy it) vs `quoted`/`bare`/`key` (a same-named token appears somewhere). Weak evidence is reported as weak, never counted as documented. This is not fussiness. 7.2.0's honeycomb heatmap adds `plotOptions.heatmap.shape`, and the leaf `shape:` matches marker, funnel and raincloud examples in five reference files. A boolean "mentioned" test would have called that feature documented.
+
+Both share `scripts/_surface.mjs`, whose type walk is `scripts/extract-api-surface.cjs`, **vendored verbatim from the website repo**. Do not edit the vendored copy or reimplement the walk: its comments record six ways the walk silently produces junk (tuples emitting Array prototypes, aliased arrays leaking `.map`/`.length`, `string & {}` being an intersection, generic symbol-name collisions deleting subtrees, Lit elements dragging in the DOM, and scoping to one package root hiding siblings). Fix bugs upstream in the website repo, then re-copy.
+
+Known limits, both inherited and worth restating before anyone trusts a green run:
+
+- **A type surface cannot see behaviour.** A release that changes what a value means moves no type. apexcharts 7.5.1 and 7.6.1 both report no surface change here and both were real releases.
+- **The types can lag the runtime.** `api.pointer()` shipped in 7.3.0 but the `.d.ts` did not declare it until 7.6.0, so the delta attributes it to 7.6.0. The release notes `check:versions` prints are what cover that gap.
+- **A tuple changing arity is reported by no dimension** (tuples are treated as leaves; tracking the prototype to catch it would cost ~40 noise members per tuple).
+
+So a green delta never means a skill is accurate. It means nothing NEW is missing. The agent review is still what earns the pin.
 
 ### Env-var product gating
 

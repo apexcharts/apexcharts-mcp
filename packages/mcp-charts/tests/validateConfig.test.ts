@@ -221,6 +221,49 @@ describe('validateChartConfig — axis data point shapes', () => {
     expect(rules(r)).not.toContain('sunburst-children-not-array');
   });
 
+  it('validates an icicle hierarchy the same way, under its own rule ids (v7.6)', () => {
+    const missingX = validateChartConfig({
+      chart: { type: 'icicle' },
+      series: [{ data: [{ y: 40, children: [{ x: 'A', y: 10 }] }] }],
+    });
+    expect(rules(missingX)).toContain('icicle-node-missing-x');
+    // The sunburst ids stay the sunburst's: callers pattern-match on them.
+    expect(rules(missingX)).not.toContain('sunburst-node-missing-x');
+
+    const badChildren = validateChartConfig({
+      chart: { type: 'icicle' },
+      series: [{ data: [{ x: 'Root', y: 40, children: { x: 'A' } }] }],
+    });
+    expect(rules(badChildren)).toContain('icicle-children-not-array');
+
+    const deep = validateChartConfig({
+      chart: { type: 'icicle' },
+      series: [{ data: [{ x: 'Root', y: 40, children: [{ x: 'A', y: 20, children: [{ y: 5 }] }] }] }],
+    });
+    const miss = deep.issues.filter((i) => i.rule === 'icicle-node-missing-x');
+    expect(miss).toHaveLength(1);
+    expect(miss[0].path).toBe('series[0].data[0].children[0].children[0].x');
+  });
+
+  it('accepts an icicle branch that omits its own y (v7.6)', () => {
+    // A branch may be the sum of its children. That is the documented shape for
+    // both partition types, and requiring y here would reject it.
+    const r = validateChartConfig({
+      chart: { type: 'icicle' },
+      series: [
+        {
+          data: [
+            { x: 'Root', children: [{ x: 'A', y: 25 }, { x: 'B', y: 15 }] },
+            { x: 'Other', y: 20 },
+          ],
+        },
+      ],
+    });
+    expect(r.ok).toBe(true);
+    expect(rules(r)).not.toContain('icicle-node-missing-x');
+    expect(rules(r)).not.toContain('icicle-children-not-array');
+  });
+
   it('flags undefined data points (use null instead)', () => {
     const r = validateChartConfig({
       chart: { type: 'line' },
