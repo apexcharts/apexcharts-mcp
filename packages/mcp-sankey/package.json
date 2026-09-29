@@ -18,7 +18,7 @@
   "dependencies": {
     "@apexcharts-mcp/core": "*",
     "@modelcontextprotocol/sdk": "^1.20.0",
-    "apexsankey-skill": "^1.4.0",
+    "apexsankey-skill": "^1.4.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
