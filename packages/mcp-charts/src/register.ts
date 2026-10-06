@@ -30,7 +30,7 @@ export function registerChartsTools(server: McpServer): void {
           .enum(SUPPORTED_CHART_TYPES as [string, ...string[]])
           .describe('ApexCharts chart.type value (e.g. "line", "bar", "pie").'),
         series: z
-          .unknown()
+          .array(z.unknown())
           .optional()
           .describe('Optional series data in the format required by the chart type.'),
         categories: z
@@ -73,7 +73,7 @@ export function registerChartsTools(server: McpServer): void {
         'Returns structured issues so the caller can fix them. Returns ok: true when there ' +
         'are no errors (warnings still allowed).',
       inputSchema: {
-        config: z.unknown().describe('The ApexCharts options object to validate.'),
+        config: z.record(z.string(), z.unknown()).describe('The ApexCharts options object to validate.'),
       },
     },
     async ({ config }) => {

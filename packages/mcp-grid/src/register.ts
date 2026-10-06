@@ -53,7 +53,9 @@ export function registerGridTools(server: McpServer): void {
         'common mistake), sort/filter is boolean or config object. Returns structured ' +
         'issues with stable rule ids.',
       inputSchema: {
-        config: z.unknown().describe('The apex-grid config `{ columns, data }` to validate.'),
+        config: z
+          .record(z.string(), z.unknown())
+          .describe('The apex-grid config `{ columns, data }` to validate.'),
       },
     },
     async ({ config }) => {

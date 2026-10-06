@@ -81,7 +81,7 @@ export function registerMapsTools(server: McpServer): void {
         'values, and known scale / projection / palette names. Returns structured issues ' +
         'with stable rule ids, severity, path, and a fix when there is a one-shot remedy.',
       inputSchema: {
-        config: z.unknown().describe('The ApexMaps options object to validate.'),
+        config: z.record(z.string(), z.unknown()).describe('The ApexMaps options object to validate.'),
       },
     },
     async ({ config }) => {

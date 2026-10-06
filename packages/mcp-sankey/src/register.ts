@@ -59,7 +59,7 @@ export function registerSankeyTools(server: McpServer): void {
         'provided for grouping). Accepts either the wrapped `{ options, data }` ' +
         'shape from generate_config or the raw render payload `{ nodes, edges }`.',
       inputSchema: {
-        config: z.unknown().describe('The ApexSankey config object to validate.'),
+        config: z.record(z.string(), z.unknown()).describe('The ApexSankey config object to validate.'),
       },
     },
     async ({ config }) => {

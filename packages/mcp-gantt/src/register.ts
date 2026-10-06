@@ -69,7 +69,7 @@ export function registerGanttTools(server: McpServer): void {
         'self-dependency, invalid dependency type, cycles, baseline missing start/end). ' +
         'Returns structured issues with stable rule ids.',
       inputSchema: {
-        config: z.unknown().describe('The ApexGantt options object to validate.'),
+        config: z.record(z.string(), z.unknown()).describe('The ApexGantt options object to validate.'),
       },
     },
     async ({ config }) => {

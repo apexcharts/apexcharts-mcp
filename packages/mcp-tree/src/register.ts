@@ -17,7 +17,7 @@ export function registerTreeTools(server: McpServer): void {
         'output has `children: []` even for leaves (ApexTree requires it).',
       inputSchema: {
         data: z
-          .unknown()
+          .record(z.string(), z.unknown())
           .optional()
           .describe(
             'Root NestedNode: `{ id, name, children: [...] }`. Recursive. Leaves must have `children: []`.',
@@ -80,7 +80,7 @@ export function registerTreeTools(server: McpServer): void {
         'when contentKey is "data" but a node has no `data` payload. Accepts both the ' +
         'wrapped `{ options, data }` shape and a bare root node.',
       inputSchema: {
-        config: z.unknown().describe('The ApexTree config to validate.'),
+        config: z.record(z.string(), z.unknown()).describe('The ApexTree config to validate.'),
       },
     },
     async ({ config }) => {

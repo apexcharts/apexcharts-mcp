@@ -59,7 +59,7 @@ export function registerStockTools(server: McpServer): void {
         'data, invalid theme.mode, unknown indicator keys, and more than one ' +
         'oscillator enabled at once). Returns structured issues with stable rule ids.',
       inputSchema: {
-        config: z.unknown().describe('The ApexStock options object to validate.'),
+        config: z.record(z.string(), z.unknown()).describe('The ApexStock options object to validate.'),
       },
     },
     async ({ config }) => {
