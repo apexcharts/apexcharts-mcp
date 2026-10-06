@@ -4,7 +4,7 @@ Project context for Claude Code working in this repo.
 
 ## What this is
 
-`apexcharts-mcp` is a Model Context Protocol server that exposes the entire ApexCharts ecosystem — apexcharts, apexgantt, apextree, apexsankey, apex-grid, apexstock, apexmaps — as namespaced tools for AI assistants. It speaks MCP over **stdio** (no HTTP). It's distributed as a Node CLI (`bin: apexcharts-mcp`).
+`apexcharts-mcp` is a Model Context Protocol server that exposes the entire ApexCharts ecosystem (apexcharts, apexgantt, apextree, apexsankey, apex-grid, apexstock, apexmaps) as namespaced tools for AI assistants. It speaks MCP over **stdio** by default (what IDE clients launch) and over **Streamable HTTP** with `--http` (what the hosted endpoint `mcp.apexcharts.com` runs; see "HTTP transport" below). It's distributed as a Node CLI (`bin: apexcharts-mcp`).
 
 ## Stack
 
@@ -19,7 +19,8 @@ Project context for Claude Code working in this repo.
 
 ```
 src/
-  index.ts                          # bootstrap: reads APEXCHARTS_MCP_PRODUCTS, registers selected products, connects stdio
+  index.ts                          # bootstrap: reads APEXCHARTS_MCP_PRODUCTS, builds the server factory, runs stdio (default) or --http
+Dockerfile                          # production image for HTTP mode (the hosted endpoint)
 scripts/
   bundle.mjs                        # esbuild bundle step — externalizes SDK / zod / *-skill packages
   _skill-meta.mjs                   # shared: SKILL.md frontmatter, semver, skill package/source loading
@@ -37,6 +38,10 @@ packages/
       registry.ts                   # ProductId, ProductModule interface
       skill-loader.ts               # createReferenceReader factory used by every product
       index.ts                      # public exports
+  mcp-http/                         # @apexcharts-mcp/http (private): stateless Streamable HTTP transport
+    src/
+      http.ts                       # request listener (/mcp, /healthz), body cap, CORS, startHttpServer + drain
+      policy.ts                     # Host / Origin allow-lists (pure functions)
   mcp-charts/                       # @apexcharts-mcp/charts (private)
     src/
       index.ts                      # exports { id, registerTools }
@@ -128,7 +133,26 @@ Highlights:
 
 ### Stdio transport caveat
 
-The MCP server communicates via JSON-RPC on stdout. **Never `console.log` from server code** — it corrupts the protocol stream. Use `process.stderr.write(...)` for diagnostics.
+The MCP server communicates via JSON-RPC on stdout. **Never `console.log` from server code**: it corrupts the protocol stream. Use `process.stderr.write(...)` for diagnostics. This still applies with HTTP mode in the picture: tool and product code runs under both transports. Only HTTP-mode bootstrap code may write to stdout (the access log).
+
+### HTTP transport
+
+`--http` serves `/mcp` (Streamable HTTP) and `/healthz` from `packages/mcp-http`. Infra docs for the hosted endpoint live in the website repo (`docs/mcp-hosting.md`, `docs/mcp-hosting-devops.md`).
+
+**It is stateless with JSON responses, and the infrastructure depends on that.** Every tool is a quick read-only call with no server push, so each POST gets a freshly built server (well under 1 ms for all seven products) and `GET`/`DELETE` answer 405. That is why no connection outlives one call (a load balancer's 60s idle timeout never bites), and why replicas need no sticky sessions and memory cannot grow with abandoned clients. Adding a tool that needs sessions, progress notifications, sampling or elicitation means revisiting the load balancer, nginx and replica setup, not just this package.
+
+- **Host allow-list** (`APEXCHARTS_MCP_ALLOWED_HOSTS`, default loopback names) is the spec's DNS-rebinding defence and guards `/mcp` only. `/healthz` is exempt because balancer health checks send the target's IP as Host.
+- **Origin allow-list** (`APEXCHARTS_MCP_ALLOWED_ORIGINS`, default none) decides which browser pages may call `/mcp`. No `Origin` header means a non-browser client, always accepted. The service owns all CORS headers; nginx must not add them, or clients see duplicates.
+- **Keep-alive timeout is 65s**, above the AWS ALB's 60s idle timeout, so the balancer never reuses a socket Node is closing (a 502). Shutdown marks unsent responses `Connection: close` so a client's idle keep-alive socket cannot hold `SIGTERM` open.
+- **Access log**: one JSON line per `/mcp` request on stdout with the JSON-RPC method and tool name. Never log arguments: they carry users' data.
+- **Docker**: `COPY . .` then `npm ci`, whose `prepare` runs the full build, so a new product needs no Dockerfile change. `.dockerignore` must keep excluding `*.tsbuildinfo`: a stale one without its `dist/` makes `tsc -b` emit nothing.
+- **Deploy**: the website repo's `scripts/deploy-mcp.sh` builds the image from this repo's committed HEAD (`git archive`, never the working copy) and ships it to the prod box. Uncommitted work is never deployed.
+
+### Changing dependencies: use npm 11
+
+npm 10.9.x crashes with `Cannot read properties of null (reading 'edgesOut')` on any `npm install`, `npm update` or `npm audit fix` that has to change an already-resolved package in this workspace tree (reproduced on the untouched 0.9.1 tree, with and without `overrides`, on 2026-10-06). npm 11 does not: run dependency changes as `npx -y npm@11 install` (CI publishes with npm 11 too). `npm ci` on npm 10, which the Docker build uses, reads the resulting lockfile fine.
+
+Security pins for transitive dependencies live in `overrides` (the MCP SDK's own tree pulls in `proxy-addr`, `qs`, `ip-address`, `fast-uri` and `hono`). The hosted endpoint is public, so keep `npm audit --omit=dev` at zero before deploying it.
 
 ### Knowledge base sources
 

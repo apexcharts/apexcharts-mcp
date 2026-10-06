@@ -1,0 +1,14 @@
+.git
+.github
+.claude
+node_modules
+**/node_modules
+dist
+packages/*/dist
+# A stale tsbuildinfo without its dist makes `tsc -b` think the build is up
+# to date and emit nothing, so the image would bundle from missing files.
+**/*.tsbuildinfo
+coverage
+*.log
+.env
+.env.*

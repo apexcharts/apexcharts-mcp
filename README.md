@@ -93,6 +93,42 @@ By default, all seven products' tools are registered. To load only a subset, set
 
 Valid ids: `charts`, `gantt`, `tree`, `sankey`, `grid`, `stock`, `maps`. Unknown ids are skipped with a stderr warning; the server still starts.
 
+## Running over HTTP
+
+The install commands above run the server locally over stdio. To serve it over the network instead (for a shared team server, or a client that only takes a URL), start it with `--http`:
+
+```bash
+npx -y apexcharts-mcp --http --port 3000
+```
+
+It speaks [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#streamable-http) at `/mcp` and answers a dependency-free health check at `/healthz`. Connect a client to it:
+
+```bash
+claude mcp add --transport http apexcharts http://localhost:3000/mcp
+```
+
+The server is **stateless** and answers every request with plain JSON. Every tool is a quick read-only call, so it keeps no sessions and opens no long-lived streams: `GET` and `DELETE` on `/mcp` return 405, which the spec defines as "this server offers neither". Nothing outlives a single request, so it runs behind any load balancer without sticky sessions or a raised idle timeout.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `--port` or `PORT` | `3000` | Port to listen on |
+| `--host` or `APEXCHARTS_MCP_HOST` | `127.0.0.1` | Address to bind. Use `0.0.0.0` in a container |
+| `APEXCHARTS_MCP_ALLOWED_HOSTS` | `localhost,127.0.0.1,[::1]` | Hostnames `/mcp` answers for (DNS-rebinding defence), or `*`. Set it to your public hostname when exposing the server |
+| `APEXCHARTS_MCP_ALLOWED_ORIGINS` | none | Browser origins that may call `/mcp` (CORS), or `*`. Requests without an `Origin` header, which is every IDE and desktop client, are always accepted |
+| `APEXCHARTS_MCP_PRODUCTS` | all | Same as in stdio mode |
+
+Request bodies are capped at 1 MiB. Each request writes one JSON line to stdout naming the JSON-RPC method and tool (never the arguments); diagnostics go to stderr. `SIGTERM` lets in-flight requests finish before exiting.
+
+A [Dockerfile](Dockerfile) builds a production image that listens on port 3000 inside the container:
+
+```bash
+docker build -t apexcharts-mcp .
+docker run -d -p 127.0.0.1:3100:3000 --memory=256m \
+  -e APEXCHARTS_MCP_ALLOWED_HOSTS=mcp.example.com,localhost apexcharts-mcp
+```
+
+Configure the container through environment variables rather than flags; its `HEALTHCHECK` reads `PORT`.
+
 ## Knowledge base
 
 Authoritative guidance comes from the per-product skill packages on npm:
@@ -124,9 +160,11 @@ This is an npm workspace monorepo:
 
 ```
 apexcharts-mcp/
-  src/index.ts            # bootstrap — reads APEXCHARTS_MCP_PRODUCTS, wires up products
+  src/index.ts            # bootstrap: reads APEXCHARTS_MCP_PRODUCTS, wires up products, picks stdio or --http
+  Dockerfile              # production image for HTTP mode
   packages/
     mcp-core/             # shared types and the reference-reader factory
+    mcp-http/             # stateless Streamable HTTP transport, /healthz, Host/Origin policy
     mcp-charts/           # apexcharts_* tools
     mcp-gantt/            # apexgantt_* tools
     mcp-tree/             # apextree_* tools
@@ -141,7 +179,8 @@ The build runs `tsc -b` across all workspaces, then bundles `src/index.ts` (plus
 Run the server directly (for manual testing):
 
 ```bash
-node dist/index.js
+node dist/index.js          # stdio
+node dist/index.js --http   # HTTP on 127.0.0.1:3000
 ```
 
 Point your client at the local build instead of the published package:

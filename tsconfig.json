@@ -9,6 +9,7 @@
     { "path": "./packages/mcp-grid" },
     { "path": "./packages/mcp-stock" },
     { "path": "./packages/mcp-maps" },
+    { "path": "./packages/mcp-http" },
     { "path": "./tsconfig.app.json" }
   ]
 }
