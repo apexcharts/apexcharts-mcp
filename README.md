@@ -243,7 +243,3 @@ npm run check:chart-types    # hard gate: every chart type the library ships is 
 npm run check:surface-delta  # what shipped since the pin that the docs never mention
 npm run verify:skills        # signal: doc examples referencing names the types don't have
 ```
-
-## License
-
-MIT

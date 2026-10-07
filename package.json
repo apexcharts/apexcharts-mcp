@@ -14,8 +14,7 @@
   "main": "dist/index.js",
   "files": [
     "dist",
-    "README.md",
-    "LICENSE"
+    "README.md"
   ],
   "workspaces": [
     "packages/*"
@@ -53,7 +52,6 @@
     "claude"
   ],
   "author": "ApexCharts",
-  "license": "MIT",
   "engines": {
     "node": ">=18"
   },
