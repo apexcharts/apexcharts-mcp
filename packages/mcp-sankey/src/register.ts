@@ -57,11 +57,11 @@ export function registerSankeyTools(server: McpServer): void {
       title: 'Validate ApexSankey config',
       annotations: READ_ONLY_TOOL,
       description:
-        'Check an ApexSankey config against apexsankey-skill rules (unique node ids, ' +
-        'edges reference real nodes, edge.value > 0, no self-loops, cycles flagged as ' +
-        'warnings since apexsankey 1.11 renders them as dashed back-edges, edge.type ' +
-        'provided for grouping). Accepts either the wrapped `{ options, data }` ' +
-        'shape from generate_config or the raw render payload `{ nodes, edges }`.',
+        'Check an ApexSankey config against what the library does with it (unique node ids, ' +
+        'edges reference real nodes, no negative values, no self-loops, no parallel edges ' +
+        'that collapse into one, nodes without edges). Cycles are allowed: they render as ' +
+        'dashed loops. Accepts the wrapped `{ options, data }` shape from generate_config, ' +
+        'the raw render payload `{ nodes, edges }`, or an ApexSankey.compare `{ before, after }` config.',
       inputSchema: {
         config: z.record(z.string(), z.unknown()).describe('The ApexSankey config object to validate.'),
       },

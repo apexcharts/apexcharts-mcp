@@ -220,7 +220,7 @@ export const CHART_CATALOG: ChartTypeInfo[] = [
     type: 'icicle',
     name: 'Icicle',
     description:
-      "Hierarchical partition chart (new in v7.6): one band per depth level, each child sized inside its parent's extent. The sunburst's layout in cartesian coordinates, so labels stay horizontal and same-depth siblings line up across branches; plotOptions.icicle.direction 'up' is the flame-graph orientation. Free, but OPT-IN: the default bundle carries no icicle class, so it needs `import ApexCharts from 'apexcharts/icicle'` (loading the full apexcharts.js does not help).",
+      "Hierarchical partition chart (new in v7.6): one band per depth level, each child sized inside its parent's extent. The sunburst's layout in cartesian coordinates, so labels stay horizontal and same-depth siblings line up across branches; plotOptions.icicle.direction 'up' is the flame-graph orientation. Not a premium type, but OPT-IN: the default bundle carries no icicle class, so it needs `import ApexCharts from 'apexcharts/icicle'` (loading the full apexcharts.js does not help).",
     family: 'grid',
     referenceFile: 'grid-charts.md',
     seriesFormat: 'axis',
@@ -266,11 +266,12 @@ export const CHART_CATALOG: ChartTypeInfo[] = [
   {
     type: 'radialBar',
     name: 'Radial Bar',
-    description: 'Circular progress chart with one or more concentric tracks. Values are 0-100 (percentages).',
+    description:
+      'Circular progress chart with one or more concentric tracks. Values are percentages (0-100) unless plotOptions.radialBar.min/max set another domain.',
     family: 'circular',
     referenceFile: 'circular-charts.md',
     seriesFormat: 'non-axis',
-    dataFormat: 'series: [number 0–100, ...] + labels: [string, ...]',
+    dataFormat: 'series: [number, ...] (0-100 by default) + labels: [string, ...]',
   },
   {
     type: 'gauge',
@@ -286,7 +287,7 @@ export const CHART_CATALOG: ChartTypeInfo[] = [
     type: 'sunburst',
     name: 'Sunburst',
     description:
-      'Hierarchical radial chart (new in v6.7). A nested pie/donut where rings go from the center hole outward, one per hierarchy level, each child arc nested inside its parent wedge. Free.',
+      'Hierarchical radial chart (new in v6.7). A nested pie/donut where rings go from the center hole outward, one per hierarchy level, each child arc nested inside its parent wedge. Not a premium type.',
     family: 'circular',
     referenceFile: 'circular-charts.md',
     seriesFormat: 'axis',

@@ -61,11 +61,83 @@ describe('validateGanttConfig — per-task rules', () => {
     expect(result.errors.some((e) => e.rule === 'duplicate-task-id')).toBe(true);
   });
 
-  it('flags milestone with endTime', () => {
-    const result = validateGanttConfig({
+  it('warns (not errors) on a milestone whose endTime differs from its startTime', () => {
+    const later = validateGanttConfig({
       series: [{ id: 'm', name: 'M', startTime: '06-01-2026', endTime: '06-02-2026', type: 'milestone' }],
     });
-    expect(result.errors.some((e) => e.rule === 'milestone-has-endTime')).toBe(true);
+    expect(later.ok).toBe(true);
+    expect(later.warnings.map((w) => w.rule)).toEqual(['milestone-has-endTime']);
+
+    const same = validateGanttConfig({
+      series: [{ id: 'm', name: 'M', startTime: '06-01-2026', endTime: '06-01-2026', type: 'milestone' }],
+    });
+    expect(same.issues).toEqual([]);
+  });
+
+  it('errors on a task with a startTime but no endTime (the library throws)', () => {
+    const result = validateGanttConfig({ series: [{ id: 'a', name: 'A', startTime: '01-05-2026' }] });
+    expect(result.errors.map((e) => e.rule)).toEqual(['task-missing-endTime']);
+  });
+
+  it('accepts a milestone with only a startTime', () => {
+    const result = validateGanttConfig({
+      series: [{ id: 'm', name: 'M', startTime: '01-05-2026', type: 'milestone' }],
+    });
+    expect(result.issues).toEqual([]);
+  });
+
+  it('warns that a capitalised "Milestone" type is treated as an ordinary task', () => {
+    const result = validateGanttConfig({
+      series: [{ id: 'm', name: 'M', startTime: '01-05-2026', type: 'Milestone' }],
+    });
+    expect(result.issues.map((i) => i.rule)).toEqual(['task-type-case', 'task-missing-endTime']);
+  });
+
+  it('accepts a parent row without dates when other tasks name it as parentId', () => {
+    const result = validateGanttConfig({
+      series: [{ id: 'p', name: 'P' }, { ...ok, id: 'c', parentId: 'p' }],
+    });
+    expect(result.issues).toEqual([]);
+  });
+
+  it('errors on a leaf task with no dates at all', () => {
+    const result = validateGanttConfig({ series: [{ id: 'a', name: 'A' }] });
+    expect(result.errors.map((e) => e.rule)).toEqual(['task-missing-startTime']);
+  });
+
+  it('accepts a split task whose dates come from its segments', () => {
+    const result = validateGanttConfig({
+      series: [
+        {
+          id: 's',
+          name: 'S',
+          segments: [{ start: '01-12-2026', end: '01-14-2026' }, { start: '01-19-2026', end: '01-21-2026' }],
+        },
+      ],
+    });
+    expect(result.issues).toEqual([]);
+  });
+
+  it('accepts an empty task name', () => {
+    expect(validateGanttConfig({ series: [{ ...ok, name: '' }] }).issues).toEqual([]);
+  });
+});
+
+describe('validateGanttConfig — parsing', () => {
+  it('skips the TaskInput checks for raw rows mapped by parsing', () => {
+    const result = validateGanttConfig({
+      series: [{ task_id: 'T1', task_name: 'X', start_date: '01-01-2024', end_date: '01-15-2024' }],
+      parsing: { id: 'task_id', name: 'task_name', startTime: 'start_date', endTime: 'end_date' },
+    });
+    expect(result.issues).toEqual([]);
+  });
+
+  it('errors when parsing does not map id, name and startTime', () => {
+    const result = validateGanttConfig({
+      series: [{ task_id: 'T1' }],
+      parsing: { id: 'task_id', name: 'task_name' },
+    });
+    expect(result.errors.map((e) => e.rule)).toEqual(['parsing-incomplete']);
   });
 });
 
@@ -83,6 +155,11 @@ describe('validateGanttConfig — progress', () => {
   it('warns when progress looks like a 0–1 fraction', () => {
     const result = validateGanttConfig({ series: [{ ...ok, progress: 0.75 }] });
     expect(result.warnings.some((w) => w.rule === 'progress-looks-like-fraction')).toBe(true);
+  });
+
+  it('does not read an integer progress of 1 as a fraction', () => {
+    const result = validateGanttConfig({ series: [{ ...ok, progress: 1 }] });
+    expect(result.issues).toEqual([]);
   });
 
   it('does not flag progress=0', () => {
@@ -129,7 +206,7 @@ describe('validateGanttConfig — dependencies', () => {
     const result = validateGanttConfig({
       series: [{ ...ok, dependency: ok.id }],
     });
-    expect(result.errors.some((e) => e.rule === 'self-dependency')).toBe(true);
+    expect(result.errors.map((e) => e.rule)).toEqual(['self-dependency']);
   });
 
   it('flags invalid dependency type', () => {
@@ -180,7 +257,9 @@ describe('validateGanttConfig — date format', () => {
     const result = validateGanttConfig({
       series: [{ id: 't', name: 'T', startTime: '2026-01-15', endTime: '2026-01-30' }],
     });
-    expect(result.warnings.some((w) => w.rule === 'iso-date-with-default-format')).toBe(true);
+    // One warning for the whole config, not one per date field.
+    expect(result.warnings.filter((w) => w.rule === 'iso-date-with-default-format')).toHaveLength(1);
+    expect(result.ok).toBe(true);
   });
 
   it('does not warn when inputDateFormat is set to ISO', () => {

@@ -78,9 +78,10 @@ export function registerMapsTools(server: McpServer): void {
       title: 'Validate ApexMaps config',
       annotations: READ_ONLY_TOOL,
       description:
-        'Check an ApexMaps options object against apexmaps-skill rules: geo.map present, ' +
-        'known series types, arc from/to endpoints, line paths, bubble/marker coordinates ' +
-        'or joinBy, hexbin point positions and aggregates (a hexbin has no joinBy), ' +
+        'Check an ApexMaps options object against what the library does with it: geo.map present ' +
+        'and a built-in map id (or a URL / inline geometry), hex layouts only where one exists, ' +
+        'a frameable geo.view.fit, known series types, arc from/to endpoints, line paths, ' +
+        'bubble/marker coordinates or something to join on, hexbin point positions and aggregates (a hexbin has no joinBy), ' +
         '[lon, lat] ordering, joinBy shape, null (not undefined) for missing ' +
         'values, and known scale / projection / palette names. Returns structured issues ' +
         'with stable rule ids, severity, path, and a fix when there is a one-shot remedy.',

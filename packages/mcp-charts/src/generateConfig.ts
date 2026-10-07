@@ -40,7 +40,7 @@ export function generateChartConfig(input: GenerateChartConfigInput): Record<str
   const height = input.height ?? 350;
   const chart: Record<string, unknown> = { type: info.type, height };
 
-  if (input.stacked && (info.type === 'bar' || info.type === 'area')) {
+  if (input.stacked && (info.type === 'bar' || info.type === 'area' || info.type === 'line')) {
     chart.stacked = true;
   }
 

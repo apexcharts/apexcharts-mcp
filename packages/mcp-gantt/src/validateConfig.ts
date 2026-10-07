@@ -26,9 +26,20 @@ function isObject(v: unknown): v is AnyObj {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
+/** State shared across one validation run. */
+interface Context {
+  inputDateFormat: string;
+  ids: Set<string>;
+  /** Ids some task names as its parentId: summary rows that may omit dates. */
+  parentIds: Set<string>;
+  /** The ISO-date warning is about the whole config, so it is reported once. */
+  isoReported: boolean;
+}
+
 /**
  * Validate an ApexGantt options object against the rules in apexgantt-skill's
- * SKILL.md (critical rules 3–11) and references/dependencies.md. Never throws.
+ * SKILL.md and references/dependencies.md, as checked against the apexgantt
+ * 3.18.1 runtime. Never throws.
  */
 export function validateGanttConfig(config: unknown): ValidationResult {
   const issues: ValidationIssue[] = [];
@@ -49,7 +60,7 @@ export function validateGanttConfig(config: unknown): ValidationResult {
       severity: 'error',
       rule: 'missing-series',
       path: 'series',
-      message: 'series is required — it holds the task array.',
+      message: 'series is required: it holds the task array.',
       fix: 'Add `series: [{ id, name, startTime, endTime }, ...]`.',
     });
     return finalize(issues);
@@ -64,14 +75,39 @@ export function validateGanttConfig(config: unknown): ValidationResult {
     return finalize(issues);
   }
 
-  const inputDateFormat =
-    typeof config.inputDateFormat === 'string' ? config.inputDateFormat : 'MM-DD-YYYY';
+  // With `parsing`, the rows are raw records the library maps onto TaskInput
+  // first, so the TaskInput checks below would read the wrong field names.
+  if (config.parsing !== undefined) {
+    checkParsing(config.parsing, issues);
+    return finalize(issues);
+  }
 
-  const ids = collectIds(series, issues);
-  series.forEach((task, i) => checkTask(task, i, ids, inputDateFormat, issues));
+  const ctx: Context = {
+    inputDateFormat: typeof config.inputDateFormat === 'string' ? config.inputDateFormat : 'MM-DD-YYYY',
+    ids: collectIds(series, issues),
+    parentIds: new Set(
+      series
+        .map((t) => (isObject(t) && typeof t.parentId === 'string' ? t.parentId : undefined))
+        .filter((p): p is string => p !== undefined),
+    ),
+    isoReported: false,
+  };
+  series.forEach((task, i) => checkTask(task, i, ctx, issues));
   checkDependencyCycles(series, issues);
 
   return finalize(issues);
+}
+
+function checkParsing(parsing: unknown, issues: ValidationIssue[]): void {
+  const missing = ['id', 'name', 'startTime'].filter((k) => !isObject(parsing) || !parsing[k]);
+  if (missing.length === 0) return;
+  issues.push({
+    severity: 'error',
+    rule: 'parsing-incomplete',
+    path: 'parsing',
+    message: `parsing must map id, name and startTime; missing ${missing.join(', ')}. Without them ApexGantt renders no tasks.`,
+    fix: "Map each to the field in your records, e.g. parsing: { id: 'task_id', name: 'task_name', startTime: 'start_date', endTime: 'end_date' }.",
+  });
 }
 
 function finalize(issues: ValidationIssue[]): ValidationResult {
@@ -95,7 +131,7 @@ function collectIds(series: unknown[], issues: ValidationIssue[]): Set<string> {
         rule: 'duplicate-task-id',
         path: `series[${i}].id`,
         message: `Duplicate task id "${id}". Ids must be unique across the series.`,
-        fix: 'Selection, dependency arrows and the diff-update path all key off id — pick a unique value.',
+        fix: 'Selection, dependency arrows and the diff-update path all key off id, so pick a unique value.',
       });
       dupes.add(id);
     }
@@ -104,14 +140,9 @@ function collectIds(series: unknown[], issues: ValidationIssue[]): Set<string> {
   return seen;
 }
 
-function checkTask(
-  task: unknown,
-  i: number,
-  ids: Set<string>,
-  inputDateFormat: string,
-  issues: ValidationIssue[],
-): void {
+function checkTask(task: unknown, i: number, ctx: Context, issues: ValidationIssue[]): void {
   const path = `series[${i}]`;
+  const ids = ctx.ids;
 
   if (!isObject(task)) {
     issues.push({
@@ -132,42 +163,16 @@ function checkTask(
     });
   }
 
-  if (typeof task.name !== 'string' || task.name.length === 0) {
+  if (typeof task.name !== 'string') {
     issues.push({
       severity: 'error',
       rule: 'task-missing-name',
       path: `${path}.name`,
-      message: 'Task `name` is required and must be a non-empty string.',
+      message: 'Task `name` is required and must be a string.',
     });
   }
 
-  if (typeof task.startTime !== 'string' || task.startTime.length === 0) {
-    issues.push({
-      severity: 'error',
-      rule: 'task-missing-startTime',
-      path: `${path}.startTime`,
-      message: 'Task `startTime` is required and must be a date string parseable by inputDateFormat.',
-    });
-  } else {
-    checkDateFormat(task.startTime, `${path}.startTime`, inputDateFormat, issues);
-  }
-
-  const type = task.type;
-  const isMilestone = type === 'milestone' || (typeof type === 'string' && type.toLowerCase() === 'milestone');
-
-  if (isMilestone) {
-    if (task.endTime !== undefined) {
-      issues.push({
-        severity: 'error',
-        rule: 'milestone-has-endTime',
-        path: `${path}.endTime`,
-        message: 'Milestone tasks must omit `endTime` — they render as a diamond at `startTime`.',
-        fix: 'Remove `endTime`, or change `type` away from "milestone".',
-      });
-    }
-  } else if (typeof task.endTime === 'string') {
-    checkDateFormat(task.endTime, `${path}.endTime`, inputDateFormat, issues);
-  }
+  checkTaskDates(task, path, ctx, issues);
 
   if (task.progress !== undefined) {
     const p = task.progress;
@@ -183,16 +188,16 @@ function checkTask(
         severity: 'error',
         rule: 'progress-out-of-range',
         path: `${path}.progress`,
-        message: `progress must be in 0–100 (percent). Got ${p}.`,
-        fix: p > 0 && p <= 1 ? 'Multiply by 100: progress is 0–100, not 0–1.' : undefined,
+        message: `progress must be in 0 to 100 (percent). Got ${p}.`,
+        fix: p > 0 && p <= 1 ? 'Multiply by 100: progress is 0 to 100, not 0 to 1.' : undefined,
       });
-    } else if (p > 0 && p <= 1) {
+    } else if (p > 0 && p < 1) {
+      // Only a non-integer below 1 reads as a fraction: an integer 1 is 1%.
       issues.push({
         severity: 'warning',
         rule: 'progress-looks-like-fraction',
         path: `${path}.progress`,
-        message:
-          `progress=${p} is technically valid but very low — common mistake is passing 0–1 fractions. ApexGantt expects 0–100.`,
+        message: `progress=${p} looks like a 0 to 1 fraction, but ApexGantt reads progress as a percentage (0 to 100).`,
         fix: 'If this is a fraction (e.g. 0.75 = 75%), multiply by 100.',
       });
     }
@@ -218,7 +223,7 @@ function checkTask(
         severity: 'error',
         rule: 'orphan-parentId',
         path: `${path}.parentId`,
-        message: `parentId "${task.parentId}" does not match any task id. Orphan parents are silently flattened to top-level.`,
+        message: `parentId "${task.parentId}" does not match any task id. The task is dropped from both the task list and the timeline.`,
       });
     }
   }
@@ -228,30 +233,115 @@ function checkTask(
   }
 
   if (task.baseline !== undefined) {
-    checkBaseline(task.baseline, `${path}.baseline`, inputDateFormat, issues);
+    checkBaseline(task.baseline, `${path}.baseline`, ctx, issues);
   }
 }
 
-function checkDateFormat(
-  value: string,
-  path: string,
-  inputDateFormat: string,
-  issues: ValidationIssue[],
-): void {
-  // The default format is 'MM-DD-YYYY' but a very common mistake is passing
-  // ISO dates ('2026-01-15') without overriding inputDateFormat. We can't
-  // truly run dayjs here, but we can catch the most common shape mismatch.
-  if (inputDateFormat === 'MM-DD-YYYY' && ISO_DATE_RE.test(value)) {
+/**
+ * Which dates a task needs, as the library's task validation decides:
+ * - segments supply both dates (the first segment's start, the last one's end);
+ * - a row with no dates at all is a summary row, fine if it has children
+ *   (or showSummaryBar), and a thrown error otherwise;
+ * - a milestone needs startTime and draws at it, whatever endTime says;
+ * - any other task with one date needs the other, or ApexGantt throws
+ *   "Task must have an id, start, and end date".
+ * The milestone test is the exact lowercase string: the library compares
+ * `"milestone" === type`, so "Milestone" is drawn as an ordinary task.
+ */
+function checkTaskDates(task: AnyObj, path: string, ctx: Context, issues: ValidationIssue[]): void {
+  const { startTime, endTime, type } = task;
+  const hasStart = typeof startTime === 'string' && startTime.length > 0;
+  const hasEnd = typeof endTime === 'string' && endTime.length > 0;
+  const isMilestone = type === 'milestone';
+
+  if (typeof type === 'string' && !isMilestone && type.toLowerCase() === 'milestone') {
     issues.push({
       severity: 'warning',
-      rule: 'iso-date-with-default-format',
-      path,
-      message:
-        `Date "${value}" looks like ISO (YYYY-MM-DD) but inputDateFormat is the default "MM-DD-YYYY". ` +
-        'The bar will fail to render with no console error.',
-      fix: 'Set `inputDateFormat: "YYYY-MM-DD"` at the top level, or rewrite dates as "MM-DD-YYYY".',
+      rule: 'task-type-case',
+      path: `${path}.type`,
+      message: `type "${type}" is not recognised: ApexGantt matches the lowercase "milestone", so this row is treated as an ordinary task.`,
+      fix: 'Use type: "milestone".',
     });
   }
+
+  for (const [field, value] of [['startTime', startTime], ['endTime', endTime]] as const) {
+    if (value !== undefined && typeof value !== 'string') {
+      issues.push({
+        severity: 'error',
+        rule: `task-missing-${field}`,
+        path: `${path}.${field}`,
+        message: `Task \`${field}\` must be a date string parseable by inputDateFormat.`,
+      });
+      return;
+    }
+  }
+
+  const hasSegments =
+    Array.isArray(task.segments) &&
+    task.segments.some((s) => isObject(s) && typeof s.start === 'string' && typeof s.end === 'string');
+  const isSummary = task.showSummaryBar === true || (typeof task.id === 'string' && ctx.parentIds.has(task.id));
+
+  if (!hasSegments) {
+    if (!hasStart && !hasEnd) {
+      if (!isSummary) {
+        issues.push({
+          severity: 'error',
+          rule: 'task-missing-startTime',
+          path: `${path}.startTime`,
+          message: 'This task has no startTime or endTime and no child tasks, so ApexGantt throws.',
+          fix: 'Add startTime and endTime, or segments. Only a parent row (one other tasks name as parentId) may omit both.',
+        });
+      }
+    } else if (!hasStart) {
+      issues.push({
+        severity: 'error',
+        rule: 'task-missing-startTime',
+        path: `${path}.startTime`,
+        message: 'This task has an endTime but no startTime, so ApexGantt throws.',
+        fix: 'Add startTime.',
+      });
+    } else if (!hasEnd && !isMilestone && task.showSummaryBar !== true) {
+      issues.push({
+        severity: 'error',
+        rule: 'task-missing-endTime',
+        path: `${path}.endTime`,
+        message: 'This task has a startTime but no endTime, so ApexGantt throws "Task must have an id, start, and end date".',
+        fix: 'Add endTime, or set type: "milestone" for a single-date marker.',
+      });
+    }
+  }
+
+  if (isMilestone && hasStart && hasEnd && endTime !== startTime) {
+    issues.push({
+      severity: 'warning',
+      rule: 'milestone-has-endTime',
+      path: `${path}.endTime`,
+      message:
+        'A milestone draws as a diamond at startTime and ignores endTime for drawing, but a later endTime still widens the timeline and is read out as a range by screen readers.',
+      fix: 'Remove endTime from the milestone.',
+    });
+  }
+
+  if (hasStart) checkDateFormat(startTime as string, `${path}.startTime`, ctx, issues);
+  if (hasEnd) checkDateFormat(endTime as string, `${path}.endTime`, ctx, issues);
+}
+
+function checkDateFormat(value: string, path: string, ctx: Context, issues: ValidationIssue[]): void {
+  // Rendering falls back to a lenient parse, so ISO dates still draw under the
+  // default 'MM-DD-YYYY'. Two things do not: the edit dialog parses strictly
+  // (its date fields come up empty) and edited or dragged dates are written
+  // back in inputDateFormat, mixing formats in the data.
+  if (ctx.isoReported || ctx.inputDateFormat !== 'MM-DD-YYYY' || !ISO_DATE_RE.test(value)) return;
+  ctx.isoReported = true;
+  issues.push({
+    severity: 'warning',
+    rule: 'iso-date-with-default-format',
+    path,
+    message:
+      `Dates such as "${value}" are ISO (YYYY-MM-DD) but inputDateFormat is the default "MM-DD-YYYY". ` +
+      'The bars still draw, but the edit dialog shows empty date fields and edited or dragged dates are written back as MM-DD-YYYY, mixing formats in your data.',
+    fix: 'Set `inputDateFormat: "YYYY-MM-DD"` at the top level.',
+  });
 }
 
 function checkDependency(
@@ -273,7 +363,7 @@ function checkDependency(
         rule: 'dependency-wrong-key',
         path,
         message:
-          'Dependency object uses `id` instead of `taskId`. ApexGantt only reads `taskId` — the dependency is silently dropped.',
+          'Dependency object uses `id` instead of `taskId`. ApexGantt only reads `taskId`, so the dependency is silently dropped.',
         fix: 'Rename `id` to `taskId`: `dependency: { taskId: "...", type: "FS", lag: 0 }`.',
       });
     }
@@ -327,7 +417,7 @@ function checkDependency(
         severity: 'error',
         rule: 'self-dependency',
         path,
-        message: `Task "${targetId}" depends on itself. Self-dependencies create a cycle and are ignored at render time.`,
+        message: `Task "${targetId}" depends on itself. ApexGantt still draws the arrow, looping back to the same bar.`,
       });
     } else if (!ids.has(targetId)) {
       issues.push({
@@ -340,12 +430,7 @@ function checkDependency(
   }
 }
 
-function checkBaseline(
-  baseline: unknown,
-  path: string,
-  inputDateFormat: string,
-  issues: ValidationIssue[],
-): void {
+function checkBaseline(baseline: unknown, path: string, ctx: Context, issues: ValidationIssue[]): void {
   if (!isObject(baseline)) {
     issues.push({
       severity: 'error',
@@ -364,7 +449,7 @@ function checkBaseline(
       message: 'baseline.start is required and must be a date string.',
     });
   } else {
-    checkDateFormat(start, `${path}.start`, inputDateFormat, issues);
+    checkDateFormat(start, `${path}.start`, ctx, issues);
   }
   if (typeof end !== 'string') {
     issues.push({
@@ -374,7 +459,7 @@ function checkBaseline(
       message: 'baseline.end is required and must be a date string.',
     });
   } else {
-    checkDateFormat(end, `${path}.end`, inputDateFormat, issues);
+    checkDateFormat(end, `${path}.end`, ctx, issues);
   }
 }
 
@@ -387,11 +472,9 @@ function checkDependencyCycles(series: unknown[], issues: ValidationIssue[]): vo
     if (!isObject(task) || typeof task.id !== 'string') return;
     const preds: string[] = [];
     const dep = task.dependency;
-    if (typeof dep === 'string') {
-      preds.push(dep);
-    } else if (isObject(dep) && typeof dep.taskId === 'string') {
-      preds.push(dep.taskId);
-    }
+    const target = typeof dep === 'string' ? dep : isObject(dep) && typeof dep.taskId === 'string' ? dep.taskId : undefined;
+    // A self-dependency is reported once, by its own rule.
+    if (target !== undefined && target !== task.id) preds.push(target);
     graph.set(task.id, preds);
   });
 
@@ -423,8 +506,8 @@ function checkDependencyCycles(series: unknown[], issues: ValidationIssue[]): vo
                 severity: 'error',
                 rule: 'dependency-cycle',
                 path: 'series',
-                message: `Dependency cycle detected: ${cycle}.`,
-                fix: 'Break the cycle — ApexGantt suppresses arrow draw on the cycle edge but the data is still wrong.',
+                message: `Dependency cycle detected: ${cycle}. ApexGantt draws every arrow in it, so the schedule shows tasks waiting on each other.`,
+                fix: 'Break the cycle: remove or redirect one of the dependencies.',
               });
               reported.add(cycle);
             }

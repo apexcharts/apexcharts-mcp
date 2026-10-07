@@ -50,7 +50,7 @@ export function registerChartsTools(server: McpServer): void {
         stacked: z
           .boolean()
           .optional()
-          .describe('Stack series. Honored only for bar and area chart types.'),
+          .describe('Stack series. Honored only for bar, area and line chart types.'),
         horizontal: z
           .boolean()
           .optional()
@@ -72,7 +72,7 @@ export function registerChartsTools(server: McpServer): void {
       annotations: READ_ONLY_TOOL,
       description:
         'Check an ApexCharts options object against the data-format rules and known ' +
-        'pitfalls (wrong series shape for chart type, radialBar values out of 0–100 range, ' +
+        'pitfalls (wrong series shape for chart type, radialBar values outside the min/max domain, ' +
         'undefined data points, conflicting tooltip flags, hex colors missing #, etc.). ' +
         'Returns structured issues so the caller can fix them. Returns ok: true when there ' +
         'are no errors (warnings still allowed).',

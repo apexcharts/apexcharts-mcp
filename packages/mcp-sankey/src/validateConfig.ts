@@ -22,13 +22,16 @@ function isObject(v: unknown): v is AnyObj {
 }
 
 /**
- * Validate an ApexSankey config. Accepts either:
- *   - the render payload directly: `{ nodes, edges }` (with optional `options`), or
- *   - the wrapped shape from generateSankeyConfig: `{ options, data: { nodes, edges } }`.
+ * Validate an ApexSankey config. Accepts:
+ *   - the render payload directly: `{ nodes, edges }` (with optional `options`),
+ *   - the wrapped shape from generateSankeyConfig: `{ options, data: { nodes, edges } }`, or
+ *   - an `ApexSankey.compare` config: `{ before, after, options? }`, each panel a `{ nodes, edges }` graph.
  *
- * Encodes the data-format rules from apexsankey-skill SKILL.md §2 (unique
- * node ids, edge value > 0, edges reference real node ids; cycles are flagged
- * as warnings since apexsankey 1.11 renders them as dashed back-edges).
+ * Each rule encodes what the library does with the input, checked against the
+ * apexsankey source (1.12.2): unique node ids, edges that reference real
+ * nodes, non-negative values, no self-loops, no edges that collapse into one.
+ * Cycles are not flagged: the layout reverses them and draws a dashed loop.
+ * `options.type: 'chord'` changes which edges survive, so it is read here.
  */
 export function validateSankeyConfig(config: unknown): ValidationResult {
   const issues: ValidationIssue[] = [];
@@ -43,59 +46,19 @@ export function validateSankeyConfig(config: unknown): ValidationResult {
     return finalize(issues);
   }
 
+  const options = isObject(config.options) ? config.options : {};
+  const isChord = options.type === 'chord';
+
+  if (isObject(config.before) && isObject(config.after)) {
+    checkGraph(config.before, 'before', isChord, issues);
+    checkGraph(config.after, 'after', isChord, issues);
+    return finalize(issues);
+  }
+
   // Accept either shape: { nodes, edges } directly, or { data: { nodes, edges } }.
-  const data: AnyObj = isObject(config.data) ? config.data : config;
-
-  const nodes = data.nodes;
-  const edges = data.edges;
-
-  if (nodes === undefined) {
-    issues.push({
-      severity: 'error',
-      rule: 'missing-nodes',
-      path: pathFor(config, 'nodes'),
-      message: 'nodes is required.',
-      fix: 'Add `nodes: [{ id, title }, ...]`.',
-    });
-  }
-  if (edges === undefined) {
-    issues.push({
-      severity: 'error',
-      rule: 'missing-edges',
-      path: pathFor(config, 'edges'),
-      message: 'edges is required.',
-      fix: 'Add `edges: [{ source, target, value, type }, ...]`.',
-    });
-  }
-  if (issues.length > 0) return finalize(issues);
-
-  if (!Array.isArray(nodes)) {
-    issues.push({
-      severity: 'error',
-      rule: 'nodes-not-array',
-      path: pathFor(config, 'nodes'),
-      message: 'nodes must be an array.',
-    });
-  }
-  if (!Array.isArray(edges)) {
-    issues.push({
-      severity: 'error',
-      rule: 'edges-not-array',
-      path: pathFor(config, 'edges'),
-      message: 'edges must be an array.',
-    });
-  }
-  if (issues.length > 0) return finalize(issues);
-
-  const basePath = isObject(config.data) ? 'data' : '';
-  const nodeIds = checkNodes(nodes as unknown[], basePath, issues);
-  checkEdges(edges as unknown[], nodeIds, basePath, issues);
-
+  const data = isObject(config.data) ? config.data : config;
+  checkGraph(data, isObject(config.data) ? 'data' : '', isChord, issues);
   return finalize(issues);
-}
-
-function pathFor(config: AnyObj, field: 'nodes' | 'edges'): string {
-  return isObject(config.data) ? `data.${field}` : field;
 }
 
 function finalize(issues: ValidationIssue[]): ValidationResult {
@@ -104,10 +67,74 @@ function finalize(issues: ValidationIssue[]): ValidationResult {
   return { ok: errors.length === 0, errors, warnings, issues };
 }
 
-function checkNodes(nodes: unknown[], basePath: string, issues: ValidationIssue[]): Set<string> {
-  const seen = new Set<string>();
+function checkGraph(data: AnyObj, basePath: string, isChord: boolean, issues: ValidationIssue[]): void {
+  const at = (field: string) => (basePath ? `${basePath}.${field}` : field);
+  const nodes = data.nodes;
+  const edges = data.edges;
+  const before = issues.length;
+
+  if (nodes === undefined) {
+    issues.push({
+      severity: 'error',
+      rule: 'missing-nodes',
+      path: at('nodes'),
+      message: 'nodes is required.',
+      fix: 'Add `nodes: [{ id, title }, ...]`.',
+    });
+  }
+  if (edges === undefined) {
+    issues.push({
+      severity: 'error',
+      rule: 'missing-edges',
+      path: at('edges'),
+      message: 'edges is required.',
+      fix: 'Add `edges: [{ source, target, value }, ...]`.',
+    });
+  }
+  if (issues.length > before) return;
+
+  if (!Array.isArray(nodes)) {
+    issues.push({
+      severity: 'error',
+      rule: 'nodes-not-array',
+      path: at('nodes'),
+      message: 'nodes must be an array.',
+    });
+  }
+  if (!Array.isArray(edges)) {
+    issues.push({
+      severity: 'error',
+      rule: 'edges-not-array',
+      path: at('edges'),
+      message: 'edges must be an array.',
+    });
+  }
+  if (issues.length > before) return;
+
+  const declared = checkNodes(nodes as unknown[], at('nodes'), issues);
+  const referenced = checkEdges(edges as unknown[], declared, at('edges'), isChord, issues);
+
+  // The sankey layout builds its node set from the edges and only attaches the
+  // declared node data to ids an edge created, so a node with no edges is never
+  // drawn.
+  if (!isChord) {
+    declared.forEach((index, id) => {
+      if (referenced.has(id)) return;
+      issues.push({
+        severity: 'warning',
+        rule: 'node-unused',
+        path: `${at('nodes')}[${index}]`,
+        message: `Node "${id}" has no edges, so it is not drawn.`,
+        fix: 'Add an edge to or from it, or remove the node.',
+      });
+    });
+  }
+}
+
+/** Returns each valid node id with the index of its first declaration. */
+function checkNodes(nodes: unknown[], prefix: string, issues: ValidationIssue[]): Map<string, number> {
+  const seen = new Map<string, number>();
   const dupes = new Set<string>();
-  const prefix = basePath ? `${basePath}.nodes` : 'nodes';
   nodes.forEach((node, i) => {
     if (!isObject(node)) {
       issues.push({
@@ -128,30 +155,37 @@ function checkNodes(nodes: unknown[], basePath: string, issues: ValidationIssue[
       });
       return;
     }
-    if (seen.has(id) && !dupes.has(id)) {
-      issues.push({
-        severity: 'error',
-        rule: 'duplicate-node-id',
-        path: `${prefix}[${i}].id`,
-        message: `Duplicate node id "${id}". Duplicates are silently dropped at layout.`,
-      });
-      dupes.add(id);
+    if (seen.has(id)) {
+      if (!dupes.has(id)) {
+        issues.push({
+          severity: 'error',
+          rule: 'duplicate-node-id',
+          path: `${prefix}[${i}].id`,
+          message: `Duplicate node id "${id}". The last declaration overwrites the earlier ones.`,
+          fix: 'Give each node its own id, or merge the duplicates into one node.',
+        });
+        dupes.add(id);
+      }
+      return;
     }
-    seen.add(id);
+    seen.set(id, i);
   });
   return seen;
 }
 
+/** Returns every node id an edge references. */
 function checkEdges(
   edges: unknown[],
-  nodeIds: Set<string>,
-  basePath: string,
+  declared: Map<string, number>,
+  prefix: string,
+  isChord: boolean,
   issues: ValidationIssue[],
-): void {
-  const prefix = basePath ? `${basePath}.edges` : 'edges';
-
-  // Build adjacency for cycle detection along the way.
-  const graph = new Map<string, string[]>();
+): Set<string> {
+  const referenced = new Set<string>();
+  // The sankey graph keys an edge by (source, target, type): a later edge with
+  // the same key replaces the earlier one. Chord diagrams keep every edge.
+  const edgeKeys = new Set<string>();
+  const values: number[] = [];
 
   edges.forEach((edge, i) => {
     if (!isObject(edge)) {
@@ -164,41 +198,28 @@ function checkEdges(
       return;
     }
 
-    const source = edge.source;
-    const target = edge.target;
-    const value = edge.value;
-    const type = edge.type;
+    const { source, target, value, type } = edge;
 
-    if (typeof source !== 'string' || source.length === 0) {
-      issues.push({
-        severity: 'error',
-        rule: 'edge-missing-source',
-        path: `${prefix}[${i}].source`,
-        message: 'edge.source is required and must be a node id string.',
-      });
-    } else if (!nodeIds.has(source)) {
-      issues.push({
-        severity: 'error',
-        rule: 'edge-source-unknown',
-        path: `${prefix}[${i}].source`,
-        message: `edge.source "${source}" does not match any node id. The edge will be silently dropped.`,
-      });
-    }
-
-    if (typeof target !== 'string' || target.length === 0) {
-      issues.push({
-        severity: 'error',
-        rule: 'edge-missing-target',
-        path: `${prefix}[${i}].target`,
-        message: 'edge.target is required and must be a node id string.',
-      });
-    } else if (!nodeIds.has(target)) {
-      issues.push({
-        severity: 'error',
-        rule: 'edge-target-unknown',
-        path: `${prefix}[${i}].target`,
-        message: `edge.target "${target}" does not match any node id. The edge will be silently dropped.`,
-      });
+    for (const [field, id] of [['source', source], ['target', target]] as const) {
+      if (typeof id !== 'string' || id.length === 0) {
+        issues.push({
+          severity: 'error',
+          rule: `edge-missing-${field}`,
+          path: `${prefix}[${i}].${field}`,
+          message: `edge.${field} is required and must be a node id string.`,
+        });
+        continue;
+      }
+      referenced.add(id);
+      if (!declared.has(id)) {
+        issues.push({
+          severity: 'error',
+          rule: `edge-${field}-unknown`,
+          path: `${prefix}[${i}].${field}`,
+          message: `edge.${field} "${id}" does not match any node id. ApexSankey draws the flow to an unlabeled phantom node.`,
+          fix: 'Add the node to `nodes`, or fix the id.',
+        });
+      }
     }
 
     if (value === undefined) {
@@ -215,23 +236,26 @@ function checkEdges(
         path: `${prefix}[${i}].value`,
         message: 'edge.value must be a finite number.',
       });
-    } else if (value <= 0) {
-      issues.push({
-        severity: 'error',
-        rule: 'edge-value-not-positive',
-        path: `${prefix}[${i}].value`,
-        message: `edge.value must be > 0 (got ${value}). Zero or negative values produce zero-width bands.`,
-      });
-    }
-
-    if (typeof type !== 'string' || type.length === 0) {
-      issues.push({
-        severity: 'warning',
-        rule: 'edge-missing-type',
-        path: `${prefix}[${i}].type`,
-        message:
-          'edge.type is used as a grouping key in tooltips and styling. Provide a string so edges that belong together share a value.',
-      });
+    } else {
+      values.push(value);
+      if (value < 0) {
+        issues.push({
+          severity: 'error',
+          rule: 'edge-value-not-positive',
+          path: `${prefix}[${i}].value`,
+          message: `edge.value must not be negative (got ${value}). Negative values break the band geometry.`,
+        });
+      } else if (value === 0) {
+        issues.push({
+          severity: 'warning',
+          rule: 'edge-value-zero',
+          path: `${prefix}[${i}].value`,
+          message: isChord
+            ? 'edge.value is 0, so the chord diagram drops this flow.'
+            : 'edge.value is 0, so the flow is drawn zero-width and a node fed only by it loses its label.',
+          fix: 'Remove the edge if the flow is genuinely empty.',
+        });
+      }
     }
 
     if (typeof source === 'string' && source === target) {
@@ -239,65 +263,38 @@ function checkEdges(
         severity: 'error',
         rule: 'self-loop',
         path: `${prefix}[${i}]`,
-        message:
-          `Self-loop edge "${source} → ${source}". A flow from a node to itself cannot be routed meaningfully.`,
+        message: isChord
+          ? `Self-loop edge "${source} → ${source}". The chord diagram drops it.`
+          : `Self-loop edge "${source} → ${source}". The sankey inflates the node and the loop itself is invisible.`,
       });
     }
 
-    if (typeof source === 'string' && typeof target === 'string' && source !== target) {
-      const list = graph.get(source) ?? [];
-      list.push(target);
-      graph.set(source, list);
+    if (!isChord && typeof source === 'string' && typeof target === 'string') {
+      const key = `${source}\u0000${target}\u0000${typeof type === 'string' ? type : ''}`;
+      if (edgeKeys.has(key)) {
+        const label = typeof type === 'string' && type ? ` with type "${type}"` : '';
+        issues.push({
+          severity: 'error',
+          rule: 'duplicate-edge',
+          path: `${prefix}[${i}]`,
+          message:
+            `Edge "${source} → ${target}"${label} repeats an earlier edge between the same nodes. ` +
+            'ApexSankey keeps only the last one, so the earlier value is lost.',
+          fix: 'Merge the values into one edge, or give each parallel edge a distinct `type`.',
+        });
+      }
+      edgeKeys.add(key);
     }
   });
 
-  detectCycle(graph, prefix, issues);
-}
-
-function detectCycle(
-  graph: Map<string, string[]>,
-  prefix: string,
-  issues: ValidationIssue[],
-): void {
-  const WHITE = 0;
-  const GRAY = 1;
-  const BLACK = 2;
-  const color = new Map<string, number>();
-  for (const id of graph.keys()) color.set(id, WHITE);
-
-  const reported = new Set<string>();
-
-  function dfs(node: string, path: string[]): void {
-    color.set(node, GRAY);
-    path.push(node);
-    for (const next of graph.get(node) ?? []) {
-      const c = color.get(next) ?? WHITE;
-      if (c === GRAY) {
-        const start = path.indexOf(next);
-        const cycle = path.slice(start).concat(next).join(' → ');
-        if (!reported.has(cycle)) {
-          issues.push({
-            severity: 'warning',
-            rule: 'cycle-detected',
-            path: prefix,
-            message:
-              `Cycle detected: ${cycle}. ApexSankey 1.11+ renders cycles as dashed back-edges ` +
-              'returning upstream; on 1.10 and earlier the graph must be a DAG and layout fails.',
-            fix: 'Keep it if you target apexsankey >= 1.11 and the circular flow is intentional; otherwise break or aggregate the cycle.',
-          });
-          reported.add(cycle);
-        }
-      } else if (c === WHITE) {
-        color.set(next, WHITE);
-        if (!graph.has(next)) color.set(next, BLACK);
-        dfs(next, path);
-      }
-    }
-    path.pop();
-    color.set(node, BLACK);
+  if (values.length > 0 && values.every((v) => v === 0)) {
+    issues.push({
+      severity: 'error',
+      rule: 'edge-values-all-zero',
+      path: prefix,
+      message: 'Every edge.value is 0, so there is nothing to size the diagram by and the layout produces invalid geometry.',
+    });
   }
 
-  for (const start of graph.keys()) {
-    if (color.get(start) === WHITE) dfs(start, []);
-  }
+  return referenced;
 }

@@ -333,18 +333,6 @@ describe('validateChartConfig — other rules', () => {
     expect(rules(r)).toContain('tooltip-shared-and-intersect');
   });
 
-  it('warns on single yaxis object with multiple distinctly-named series', () => {
-    const r = validateChartConfig({
-      chart: { type: 'line' },
-      series: [
-        { name: 'Revenue', data: [10, 20] },
-        { name: 'Profit', data: [3, 5] },
-      ],
-      yaxis: { title: { text: 'Value' } },
-    });
-    expect(rules(r)).toContain('yaxis-single-with-multiple-series');
-  });
-
   it('flags hex colors without #', () => {
     const r = validateChartConfig({
       chart: { type: 'line' },
@@ -365,22 +353,26 @@ describe('validateChartConfig — other rules', () => {
     expect(rules(r)).not.toContain('hex-missing-hash');
   });
 
-  it('flags responsive breakpoints not ascending', () => {
+  it('accepts responsive breakpoints in any order (the library sorts them)', () => {
     const r = validateChartConfig({
       chart: { type: 'line' },
       series: [{ name: 'A', data: [10, 20] }],
       responsive: [{ breakpoint: 1024 }, { breakpoint: 480 }],
     });
-    expect(rules(r)).toContain('responsive-not-ascending');
+    expect(r.issues).toEqual([]);
   });
 
-  it('accepts ascending responsive breakpoints', () => {
+  it('does not warn about a single yaxis shared by several series', () => {
     const r = validateChartConfig({
-      chart: { type: 'line' },
-      series: [{ name: 'A', data: [10, 20] }],
-      responsive: [{ breakpoint: 480 }, { breakpoint: 1024 }],
+      chart: { type: 'bar' },
+      plotOptions: { bar: { horizontal: true } },
+      series: [
+        { name: 'Revenue', data: [10, 20] },
+        { name: 'Profit', data: [3, 5] },
+      ],
+      yaxis: { title: { text: 'Value' } },
     });
-    expect(rules(r)).not.toContain('responsive-not-ascending');
+    expect(r.issues).toEqual([]);
   });
 });
 
@@ -411,12 +403,21 @@ describe('validateChartConfig: v7.1 chart types', () => {
     expect(r.ok).toBe(true);
   });
 
-  it('flags a waterfall row with neither a value nor a total flag', () => {
+  it('warns that a waterfall row with neither a value nor a total flag renders as a gap', () => {
     const r = validateChartConfig({
       chart: { type: 'waterfall' },
       series: [{ name: 'W', data: [{ x: 'Revenue' }] }],
     });
     expect(rules(r)).toContain('waterfall-missing-value');
+    expect(r.ok).toBe(true);
+  });
+
+  it('accepts y: null on a waterfall row as an intended gap', () => {
+    const r = validateChartConfig({
+      chart: { type: 'waterfall' },
+      series: [{ name: 'W', data: [{ x: 'Q1', y: 100 }, { x: 'Q2', y: null }, { x: 'End', isTotal: true }] }],
+    });
+    expect(r.issues).toEqual([]);
   });
 
   it('warns when a waterfall running-total row also carries a value', () => {
@@ -445,15 +446,12 @@ describe('validateChartConfig: v7.1 chart types', () => {
     expect(r.errors).toEqual([]);
   });
 
-  it('flags [low, high] pairs on a dumbbell (that is the range-bar form)', () => {
+  it('accepts a single dumbbell series of [low, high] pairs (passed straight through)', () => {
     const r = validateChartConfig({
       chart: { type: 'dumbbell' },
-      series: [
-        { name: 'Gap', data: [{ x: 'Backend', y: [92, 118] }] },
-        { name: 'Other', data: [{ x: 'Backend', y: [80, 100] }] },
-      ],
+      series: [{ name: 'Gap', data: [{ x: 'Backend', y: [92, 118] }] }],
     });
-    expect(rules(r)).toContain('dumbbell-paired-y');
+    expect(r.issues).toEqual([]);
   });
 
   it('warns when a dumbbell has only one series', () => {
@@ -486,12 +484,126 @@ describe('validateChartConfig: v7.1 chart types', () => {
     expect(r.ok).toBe(true);
   });
 
-  it('still errors on chart.stacked for other unsupported types', () => {
+  it('allows chart.stacked on line, including a mixed chart', () => {
     const r = validateChartConfig({
       chart: { type: 'line', stacked: true },
-      series: [{ name: 'A', data: [1, 2, 3] }],
+      series: [
+        { name: 'A', type: 'bar', data: [1, 2] },
+        { name: 'T', type: 'line', data: [4, 6] },
+      ],
     });
-    expect(rules(r)).toContain('stacked-on-unsupported-type');
+    expect(r.issues).toEqual([]);
+  });
+
+  it('warns that waterfall and dumbbell switch chart.stacked off', () => {
+    const r = validateChartConfig({
+      chart: { type: 'waterfall', stacked: true },
+      series: [{ name: 'W', data: [{ x: 'Revenue', y: 10 }] }],
+    });
+    expect(rules(r)).toEqual(['stacked-ignored']);
+    expect(r.ok).toBe(true);
+  });
+});
+
+describe('validateChartConfig: forms the library accepts (audited against 7.8.0)', () => {
+  it('accepts the { x, y } object form on a pie, with labels taken from x', () => {
+    const r = validateChartConfig({
+      chart: { type: 'pie' },
+      series: [{ data: [{ x: 'A', y: 44 }, { x: 'B', y: 55 }] }],
+    });
+    expect(r.issues).toEqual([]);
+  });
+
+  it('accepts per-unit records on a unit chart', () => {
+    const r = validateChartConfig({
+      chart: { type: 'unit' },
+      series: [{ name: 'Eng', data: [{ name: 'Ana' }, { name: 'Ben' }] }],
+    });
+    expect(r.errors).toEqual([]);
+  });
+
+  it('accepts { name, data } panels on a trellised radialBar', () => {
+    const r = validateChartConfig({
+      chart: { type: 'radialBar' },
+      trellis: { by: 'store' },
+      series: [{ name: 'X', store: 'A', data: [88] }],
+    });
+    expect(r.errors).toEqual([]);
+  });
+
+  it('accepts raw records mapped by parsing, on pie and on bubble', () => {
+    const pie = validateChartConfig({
+      chart: { type: 'pie' },
+      series: [{ data: [{ k: 'A', v: 4 }], parsing: { x: 'k', y: 'v' } }],
+    });
+    const bubble = validateChartConfig({
+      chart: { type: 'bubble' },
+      series: [{ name: 'S', data: [{ a: 1, b: 2, c: 30 }], parsing: { x: 'a', y: 'b', z: 'c' } }],
+    });
+    expect(pie.errors).toEqual([]);
+    expect(bubble.errors).toEqual([]);
+  });
+
+  it('honours plotOptions.radialBar.min and max', () => {
+    const inside = validateChartConfig({
+      chart: { type: 'radialBar' },
+      plotOptions: { radialBar: { min: 0, max: 240 } },
+      series: [180],
+      labels: ['Speed'],
+    });
+    const outside = validateChartConfig({
+      chart: { type: 'radialBar' },
+      plotOptions: { radialBar: { min: 0, max: 240 } },
+      series: [300],
+      labels: ['Speed'],
+    });
+    expect(inside.issues).toEqual([]);
+    expect(rules(outside)).toEqual(['radialbar-out-of-range']);
+  });
+
+  it('accepts { y } objects and one-element arrays as histogram observations', () => {
+    const r = validateChartConfig({
+      chart: { type: 'histogram' },
+      series: [{ name: 'L', data: [{ y: 102 }, { y: 87 }, [143], 91] }],
+    });
+    expect(r.issues).toEqual([]);
+  });
+
+  it('accepts a flat number y on violin and a precomputed density on raincloud', () => {
+    const violin = validateChartConfig({
+      chart: { type: 'violin' },
+      series: [{ name: 'S', data: [{ x: 'A', y: [1, 2, 2, 3, 4] }] }],
+    });
+    const raincloud = validateChartConfig({
+      chart: { type: 'raincloud' },
+      series: [{ name: 'S', data: [{ x: 'A', y: { density: [[1, 0.2], [2, 0.5]], summary: [1, 1.5, 2, 2.5, 3] } }] }],
+    });
+    expect(violin.errors).toEqual([]);
+    expect(raincloud.errors).toEqual([]);
+  });
+
+  it('accepts the name alias on sunburst children', () => {
+    const r = validateChartConfig({
+      chart: { type: 'sunburst' },
+      series: [{ data: [{ x: 'Root', children: [{ name: 'a', value: 1 }] }] }],
+    });
+    expect(r.errors).toEqual([]);
+  });
+
+  it('warns that icicle needs its own entry point', () => {
+    const r = validateChartConfig({
+      chart: { type: 'icicle' },
+      series: [{ data: [{ x: 'Root', y: 1 }] }],
+    });
+    expect(rules(r)).toEqual(['tier2-chart-type']);
+  });
+
+  it('does not ask a sparkline for labels', () => {
+    const r = validateChartConfig({
+      chart: { type: 'donut', sparkline: { enabled: true } },
+      series: [44, 55],
+    });
+    expect(r.issues).toEqual([]);
   });
 });
 

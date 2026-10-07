@@ -66,9 +66,10 @@ export function registerGanttTools(server: McpServer): void {
       title: 'Validate ApexGantt config',
       annotations: READ_ONLY_TOOL,
       description:
-        'Check an ApexGantt options object against the rules in apexgantt-skill ' +
-        '(missing id/name/startTime, duplicate ids, orphan parentId, milestone with ' +
-        'endTime, progress out of 0–100, ISO dates with default MM-DD-YYYY format, ' +
+        'Check an ApexGantt options object against what the library does with it ' +
+        '(missing id/name, tasks missing the dates the library requires, an incomplete ' +
+        '`parsing` map, duplicate ids, orphan parentId, progress out of 0 to 100, ' +
+        'ISO dates with the default MM-DD-YYYY format, ' +
         'dependency object using `id` instead of `taskId`, unknown dependency target, ' +
         'self-dependency, invalid dependency type, cycles, baseline missing start/end). ' +
         'Returns structured issues with stable rule ids.',

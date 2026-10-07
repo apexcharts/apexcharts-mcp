@@ -1,3 +1,5 @@
+import { BUILT_IN_MAPS, HEX_LAYOUT_MAPS } from './mapCatalog.js';
+
 export type Severity = 'error' | 'warning';
 
 export interface ValidationIssue {
@@ -87,8 +89,31 @@ function isObject(v: unknown): v is AnyObj {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-function isLonLat(v: unknown): v is [number, number] {
-  return Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === 'number');
+/**
+ * A position the library's readLonLat accepts: an array of two or more numbers
+ * (a GeoJSON position may carry altitude as a third), or `{ lon, lat }` /
+ * `{ lng, lat }`. Returns the [lon, lat] pair, or null.
+ */
+function readLonLat(v: unknown): [number, number] | null {
+  if (Array.isArray(v)) {
+    return v.length >= 2 && typeof v[0] === 'number' && typeof v[1] === 'number' ? [v[0], v[1]] : null;
+  }
+  if (isObject(v)) {
+    const lon = typeof v.lon === 'number' ? v.lon : v.lng;
+    return typeof lon === 'number' && typeof v.lat === 'number' ? [lon, v.lat] : null;
+  }
+  return null;
+}
+
+/** The fields the join tries, in order, when a series sets no joinBy (apexmaps Join.ts). */
+const AUTO_JOIN_KEYS = [
+  'id', 'key', 'code', 'iso', 'iso_a3', 'iso3', 'iso_a2', 'iso2', 'fips', 'geoid', 'hc-key',
+  'region', 'state', 'country', 'name',
+];
+
+/** Same test as the library's MapRegistry: these strings are fetched, not looked up. */
+function looksLikeUrl(value: string): boolean {
+  return /^(https?:)?\/\//.test(value) || value.startsWith('/') || value.startsWith('./') || value.endsWith('.json');
 }
 
 function lonLatOutOfRange(v: [number, number]): boolean {
@@ -181,7 +206,8 @@ function checkGeo(config: AnyObj, issues: ValidationIssue[]): void {
   }
 
   const map = isObject(geo) ? geo.map : undefined;
-  if (map === undefined || map === null) {
+  const layout = isObject(geo) ? geo.layout : undefined;
+  if (map === undefined || map === null || map === '') {
     issues.push({
       severity: 'error',
       rule: 'geo-map-missing',
@@ -189,13 +215,50 @@ function checkGeo(config: AnyObj, issues: ValidationIssue[]): void {
       message: 'No geometry configured: nothing can render without geo.map.',
       fix: "Set geo.map to a registry pack id (e.g. 'world/countries', 'us', 'eu/nuts2'), a URL, or inline GeoJSON/TopoJSON.",
     });
-  } else if (typeof map !== 'string' && !isObject(map)) {
+  } else if (typeof map !== 'string' && !isObject(map) && !Array.isArray(map)) {
     issues.push({
       severity: 'error',
       rule: 'geo-map-invalid',
       path: 'geo.map',
-      message: 'geo.map must be a registry id / URL string, or a GeoJSON/TopoJSON object.',
+      message: 'geo.map must be a registry id / URL string, a GeoJSON/TopoJSON object, or an array of GeoJSON features.',
     });
+  } else if (typeof map === 'string' && !looksLikeUrl(map)) {
+    if (!BUILT_IN_MAPS.has(map)) {
+      issues.push({
+        severity: 'warning',
+        rule: 'unknown-map',
+        path: 'geo.map',
+        message:
+          `"${map}" is not a built-in map id, so ApexMaps throws "unknown map" unless it was registered with ApexMaps.registerMap() first.`,
+        fix: "Use a built-in id such as 'world/countries', 'us/states', 'us/counties', 'eu/nuts2' or 'jp/prefectures' (ApexMaps.listMaps() lists them all), or a URL.",
+      });
+    } else if (typeof layout === 'string' && layout !== '' && (layout !== 'hex' || !HEX_LAYOUT_MAPS.has(map))) {
+      issues.push({
+        severity: 'warning',
+        rule: 'hex-layout-unavailable',
+        path: 'geo.layout',
+        message: `There is no built-in "${layout}" layout for "${map}", so ApexMaps throws unless one was added with ApexMaps.registerLayout().`,
+        fix: "The built-in layouts are layout: 'hex' for us/states, au/admin1, ca/admin1, de/admin1, br/admin1, jp/admin1 and eu/nuts0 (and their aliases). Remove layout for any other map.",
+      });
+    }
+  }
+
+  // A fit box the projection cannot frame (east past the antimeridian, or east
+  // not after west) is silently replaced by the whole world.
+  const view = isObject(geo) ? geo.view : undefined;
+  const fit = isObject(view) ? view.fit : undefined;
+  if (Array.isArray(fit) && fit.length === 4 && fit.every((n) => typeof n === 'number')) {
+    const [west, , east] = fit as number[];
+    if (east > 180 || east <= west) {
+      issues.push({
+        severity: 'warning',
+        rule: 'view-fit-unframeable',
+        path: 'geo.view.fit',
+        message:
+          `fit [west, south, east, north] has east ${east}${east > 180 ? ' beyond 180' : ` not greater than west ${west}`}, so ApexMaps ignores the box and frames the whole world.`,
+        fix: 'Keep east at or below 180 and greater than west. A region crossing the antimeridian has to be framed on one side of it.',
+      });
+    }
   }
 
   if (isObject(geo) && geo.projection !== undefined) {
@@ -268,12 +331,12 @@ function checkScale(scale: unknown, path: string, issues: ValidationIssue[]): vo
         path: `${path}.type`,
         message: `Unknown scale type "${String(scale.type)}". Supported: ${SCALE_TYPES.join(', ')}.`,
       });
-    } else if (scale.type === 'threshold' && !Array.isArray(scale.breaks)) {
+    } else if (scale.type === 'threshold' && !(Array.isArray(scale.breaks) && scale.breaks.length > 0)) {
       issues.push({
         severity: 'error',
         rule: 'threshold-missing-breaks',
         path: `${path}.breaks`,
-        message: "scale type 'threshold' requires explicit breaks.",
+        message: "scale type 'threshold' requires explicit breaks; without them (or with an empty list) it falls back to quantile.",
         fix: 'Add `breaks: [n1, n2, ...]` to the scale.',
       });
     }
@@ -346,12 +409,15 @@ function checkHexbin(s: AnyObj, path: string, issues: ValidationIssue[]): void {
   }
 
   // Every aggregate except 'count' reads valueField (default 'value'), so data
-  // carrying no number under that field colours every cell as no-data.
-  if (isKnownAggregate && aggregate !== undefined && aggregate !== 'count') {
-    const field = typeof s.valueField === 'string' ? s.valueField : 'value';
+  // carrying no number under that field colours every cell as no-data. The
+  // library resolves dotted paths and numeric strings; an accessor function
+  // cannot be checked here.
+  const valueField = s.valueField === undefined ? 'value' : s.valueField;
+  if (isKnownAggregate && aggregate !== undefined && aggregate !== 'count' && typeof valueField === 'string') {
+    const field = valueField;
     const data = s.data;
     if (Array.isArray(data) && data.length > 0) {
-      const hasNumber = data.some((d) => isObject(d) && typeof d[field] === 'number');
+      const hasNumber = data.some((d) => readNumber(d, field) !== null);
       if (!hasNumber) {
         issues.push({
           severity: 'warning',
@@ -429,14 +495,27 @@ function checkSeries(s: unknown, i: number, defaultType: string, issues: Validat
     });
   }
 
-  if (type === 'arc' && typeof s.curvature === 'number' && s.curvature > 0 && s.geodesic === true) {
+  // geodesic defaults to true, so curvature conflicts with it unless geodesic
+  // is switched off explicitly.
+  if (type === 'arc' && typeof s.curvature === 'number' && s.curvature !== 0 && s.geodesic !== false) {
     issues.push({
       severity: 'warning',
       rule: 'curvature-conflicts-geodesic',
       path: `${path}.curvature`,
       message:
-        'curvature bulges the arc for looks and abandons the great-circle path; it conflicts with geodesic accuracy.',
-      fix: 'Drop curvature for real routes, or drop geodesic for decorative arcs.',
+        'curvature bulges the arc for looks and abandons the great-circle path, but geodesic is on (it defaults to true), so ApexMaps warns about the conflict.',
+      fix: 'Drop curvature for real routes, or set geodesic: false for decorative arcs.',
+    });
+  }
+
+  if (type === 'arc' && s.joinBy !== undefined) {
+    issues.push({
+      severity: 'warning',
+      rule: 'arc-joinby-ignored',
+      path: `${path}.joinBy`,
+      message:
+        "ApexMaps 1.0 ignores joinBy on arc series: string endpoints resolve against each feature's key only (the pack's keyField), so an endpoint naming another field is dropped.",
+      fix: 'Use the feature key (e.g. ISO-3 codes on world/countries) or [lon, lat] for from/to.',
     });
   }
 
@@ -453,7 +532,16 @@ function checkSeries(s: unknown, i: number, defaultType: string, issues: Validat
   }
 
   const hasJoin = s.joinBy !== undefined;
-  data.forEach((datum, j) => checkDatum(datum, `${path}.data[${j}]`, type, hasJoin, issues));
+  const valueField = s.valueField === undefined ? 'value' : s.valueField;
+  data.forEach((datum, j) => checkDatum(datum, `${path}.data[${j}]`, type, hasJoin, valueField, issues));
+}
+
+/** The library's readNumber: dotted paths, numbers and numeric strings. */
+function readNumber(source: unknown, field: string): number | null {
+  const raw = field.split('.').reduce<unknown>((acc, key) => (isObject(acc) ? acc[key] : undefined), source);
+  if (raw == null || raw === '') return null;
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  return Number.isFinite(n) ? n : null;
 }
 
 function checkDatum(
@@ -461,6 +549,7 @@ function checkDatum(
   path: string,
   type: string,
   seriesHasJoin: boolean,
+  valueField: unknown,
   issues: ValidationIssue[],
 ): void {
   if (!isObject(datum)) {
@@ -482,13 +571,17 @@ function checkDatum(
       message: 'Use null, never undefined, for missing values.',
       fix: 'Replace undefined with null.',
     });
-  } else if (datum.value !== undefined && datum.value !== null && typeof datum.value !== 'number') {
-    issues.push({
-      severity: 'warning',
-      rule: 'value-not-numeric',
-      path: `${path}.value`,
-      message: `value should be a number or null, got ${typeof datum.value}.`,
-    });
+  } else if (typeof valueField === 'string') {
+    // The value is read from valueField (default 'value'); numeric strings count.
+    const raw = valueField.split('.').reduce<unknown>((acc, key) => (isObject(acc) ? acc[key] : undefined), datum);
+    if (raw !== undefined && raw !== null && raw !== '' && readNumber(datum, valueField) === null) {
+      issues.push({
+        severity: 'warning',
+        rule: 'value-not-numeric',
+        path: `${path}.${valueField}`,
+        message: `${valueField} should be a number or null, got ${JSON.stringify(raw)}, which reads as no data.`,
+      });
+    }
   }
 
   switch (type) {
@@ -497,13 +590,19 @@ function checkDatum(
       const lon = datum.lon ?? datum.lng;
       const lat = datum.lat;
       if (typeof lon !== 'number' || typeof lat !== 'number') {
-        if (!seriesHasJoin) {
+        // Without coordinates the series joins rows to features. With no joinBy
+        // the library tries a list of common key fields, then falls back to the
+        // first string field (usually a label, which rarely matches).
+        if (!seriesHasJoin && !AUTO_JOIN_KEYS.some((k) => datum[k] != null && datum[k] !== '')) {
+          const hasString = Object.values(datum).some((v) => typeof v === 'string' && v !== '');
           issues.push({
-            severity: 'error',
+            severity: hasString ? 'warning' : 'error',
             rule: 'point-position-missing',
             path,
-            message: `A ${type} datum needs lon + lat coordinates, or the series a joinBy to resolve feature centroids.`,
-            fix: 'Add `lon` and `lat` (lng is accepted for lon), or set joinBy on the series.',
+            message: hasString
+              ? `This ${type} datum has no lon/lat and no common key field (id, code, iso_a3, name, ...), so the join falls back to its first text field, which rarely matches a feature.`
+              : `This ${type} datum has no lon/lat and nothing to join on, so it is dropped.`,
+            fix: 'Add `lon` and `lat` (lng is accepted for lon), or a key field such as `id`, or set joinBy on the series.',
           });
         }
       } else if (lonLatOutOfRange([lon, lat])) {
@@ -521,15 +620,18 @@ function checkDatum(
             path: `${path}.${end}`,
             message: `An arc datum requires both from and to, each [lon, lat] or a geometry key.`,
           });
-        } else if (typeof v !== 'string' && !isLonLat(v)) {
-          issues.push({
-            severity: 'error',
-            rule: 'arc-endpoint-invalid',
-            path: `${path}.${end}`,
-            message: `${end} must be a [lon, lat] pair or a geometry key string.`,
-          });
-        } else if (isLonLat(v) && lonLatOutOfRange(v)) {
-          pushOutOfRange(`${path}.${end}`, issues);
+        } else if (typeof v !== 'string') {
+          const pos = readLonLat(v);
+          if (!pos) {
+            issues.push({
+              severity: 'error',
+              rule: 'arc-endpoint-invalid',
+              path: `${path}.${end}`,
+              message: `${end} must be a [lon, lat] pair, { lon, lat }, or a geometry key string.`,
+            });
+          } else if (lonLatOutOfRange(pos)) {
+            pushOutOfRange(`${path}.${end}`, issues);
+          }
         }
       }
       break;
@@ -541,10 +643,10 @@ function checkDatum(
       // a hexbin has no joinBy at all.
       const lon = typeof datum.lon === 'number' ? datum.lon : datum.lng;
       const lat = datum.lat;
-      const coords = datum.coordinates;
+      const coords = Array.isArray(datum.coordinates) ? readLonLat(datum.coordinates) : null;
       if (typeof lon === 'number' && typeof lat === 'number') {
         if (lonLatOutOfRange([lon, lat])) pushOutOfRange(path, issues);
-      } else if (isLonLat(coords)) {
+      } else if (coords) {
         if (lonLatOutOfRange(coords)) pushOutOfRange(`${path}.coordinates`, issues);
       } else {
         issues.push({
@@ -569,15 +671,26 @@ function checkDatum(
           message: 'A line datum needs a path (or coordinates) array of [lon, lat] vertices.',
           fix: 'Add `path: [[lon, lat], ...]` with at least two vertices.',
         });
-      } else if (!Array.isArray(pathField) || !pathField.every(isLonLat)) {
-        issues.push({
-          severity: 'error',
-          rule: 'line-path-invalid',
-          path: `${path}.${datum.path !== undefined ? 'path' : 'coordinates'}`,
-          message: 'path must be an array of [lon, lat] pairs.',
-        });
-      } else if (pathField.some((v) => lonLatOutOfRange(v as [number, number]))) {
-        pushOutOfRange(`${path}.${datum.path !== undefined ? 'path' : 'coordinates'}`, issues);
+      } else {
+        const field = datum.path !== undefined ? 'path' : 'coordinates';
+        const vertices = Array.isArray(pathField) ? pathField.map(readLonLat) : [];
+        if (!Array.isArray(pathField) || vertices.some((v) => v === null)) {
+          issues.push({
+            severity: 'error',
+            rule: 'line-path-invalid',
+            path: `${path}.${field}`,
+            message: 'path must be an array of [lon, lat] positions (a third altitude value is fine) or { lon, lat } objects.',
+          });
+        } else if (vertices.length < 2) {
+          issues.push({
+            severity: 'error',
+            rule: 'line-path-invalid',
+            path: `${path}.${field}`,
+            message: 'A line needs at least two vertices; ApexMaps drops a shorter path.',
+          });
+        } else if (vertices.some((v) => lonLatOutOfRange(v as [number, number]))) {
+          pushOutOfRange(`${path}.${field}`, issues);
+        }
       }
       break;
     }
@@ -592,7 +705,7 @@ function pushOutOfRange(path: string, issues: ValidationIssue[]): void {
     rule: 'lonlat-out-of-range',
     path,
     message:
-      'Coordinate outside [-180, 180] longitude / [-90, 90] latitude. Coordinates are [lon, lat]; these look swapped.',
+      'Coordinate outside [-180, 180] longitude / [-90, 90] latitude. Coordinates are [lon, lat]: a latitude past 90 usually means the pair is swapped (a longitude past 180 wraps around).',
     fix: 'Order coordinates longitude first: [lon, lat].',
   });
 }

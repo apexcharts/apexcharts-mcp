@@ -57,7 +57,7 @@ describe('validateMapsConfig', () => {
     const result = validateMapsConfig({
       ...GEO,
       chart: { type: 'bubble' },
-      series: [{ data: [{ name: 'x' }] }], // no coordinates, no joinBy
+      series: [{ data: [{ value: 1 }] }], // no coordinates, no joinBy, nothing to join on
     });
     expect(result.errors.map((i) => i.rule)).toContain('point-position-missing');
   });
@@ -78,10 +78,19 @@ describe('validateMapsConfig', () => {
   it('undefined-in-data and value-not-numeric are warnings', () => {
     const result = validateMapsConfig({
       ...GEO,
-      series: [{ data: [{ code: 'A', value: undefined }, { code: 'B', value: '7' }] }],
+      series: [{ data: [{ code: 'A', value: undefined }, { code: 'B', value: 'n/a' }, { code: 'C', value: '7' }] }],
     });
     expect(result.ok).toBe(true);
+    // A numeric string reads as a number, so only 'n/a' is flagged.
     expect(result.warnings.map((i) => i.rule)).toEqual(['undefined-in-data', 'value-not-numeric']);
+  });
+
+  it('value-not-numeric reads the series valueField', () => {
+    const result = validateMapsConfig({
+      ...GEO,
+      series: [{ valueField: 'gdp', data: [{ code: 'A', value: 'France', gdp: 3.1 }, { code: 'B', gdp: 'x' }] }],
+    });
+    expect(result.warnings.map((i) => i.path)).toEqual(['series[0].data[1].gdp']);
   });
 
   it('point-position-missing on bubble/marker without coordinates or joinBy', () => {
@@ -170,13 +179,51 @@ describe('validateMapsConfig', () => {
     expect(rules({ ...GEO, series: [{ type: 'marker', cluster: {} }] })).toEqual([]);
   });
 
-  it('curvature-conflicts-geodesic only when both are explicit', () => {
-    const conflict = validateMapsConfig({
-      ...GEO,
-      series: [{ type: 'arc', curvature: 0.5, geodesic: true, data: [] }],
-    });
-    expect(conflict.warnings.map((i) => i.rule)).toContain('curvature-conflicts-geodesic');
-    expect(rules({ ...GEO, series: [{ type: 'arc', curvature: 0.5, data: [] }] })).toEqual([]);
+  it('curvature-conflicts-geodesic unless geodesic is switched off (it defaults to true)', () => {
+    expect(rules({ ...GEO, series: [{ type: 'arc', curvature: 0.5, geodesic: true, data: [] }] })).toEqual([
+      'curvature-conflicts-geodesic',
+    ]);
+    expect(rules({ ...GEO, series: [{ type: 'arc', curvature: 0.5, data: [] }] })).toEqual([
+      'curvature-conflicts-geodesic',
+    ]);
+    expect(rules({ ...GEO, series: [{ type: 'arc', curvature: 0.5, geodesic: false, data: [] }] })).toEqual([]);
+  });
+
+  it('accepts the forms the 1.0 runtime reads (audited against apexmaps 1.0.0)', () => {
+    // Auto-detected join key, no joinBy.
+    expect(rules({ ...GEO, series: [{ type: 'bubble', data: [{ id: 'USA', value: 330 }] }] })).toEqual([]);
+    // A feature array as geo.map.
+    expect(rules({ geo: { map: [{ type: 'Feature', properties: {}, geometry: null }] } })).toEqual([]);
+    // 3D positions in a line path and in hexbin coordinates.
+    expect(
+      rules({ ...GEO, series: [{ type: 'line', data: [{ path: [[-0.12, 51.5, 11], [2.35, 48.86, 35]] }] }] }),
+    ).toEqual([]);
+    expect(rules({ ...GEO, series: [{ type: 'hexbin', data: [{ coordinates: [10, 20, 100] }] }] })).toEqual([]);
+    // { lon, lat } arc endpoints.
+    expect(
+      rules({ ...GEO, series: [{ type: 'arc', data: [{ from: { lon: -0.12, lat: 51.5 }, to: [-74, 40.7] }] }] }),
+    ).toEqual([]);
+    // A dotted valueField under a value aggregate.
+    expect(
+      rules({
+        ...GEO,
+        series: [{ type: 'hexbin', aggregate: 'sum', valueField: 'm.depth', data: [{ lon: 1, lat: 2, m: { depth: 4 } }] }],
+      }),
+    ).toEqual([]);
+  });
+
+  it('flags what the 1.0 runtime breaks on', () => {
+    expect(rules({ geo: { map: 'usa' } })).toEqual(['unknown-map']);
+    expect(rules({ geo: { map: 'https://example.com/x.json' } })).toEqual([]);
+    expect(rules({ geo: { map: 'world/countries', layout: 'hex' } })).toEqual(['hex-layout-unavailable']);
+    expect(rules({ geo: { map: 'us', layout: 'hex' } })).toEqual([]);
+    expect(rules({ geo: { map: 'world', view: { fit: [100, -50, 200, 10] } } })).toEqual(['view-fit-unframeable']);
+    expect(rules({ geo: { map: 'world', view: { fit: [100, -50, 180, 10] } } })).toEqual([]);
+    expect(rules({ ...GEO, series: [{ type: 'line', data: [{ path: [[0, 0]] }] }] })).toEqual(['line-path-invalid']);
+    expect(rules({ ...GEO, series: [{ type: 'arc', joinBy: 'name', data: [{ from: 'France', to: 'Brazil' }] }] })).toEqual([
+      'arc-joinby-ignored',
+    ]);
+    expect(rules({ ...GEO, series: [{ scale: { type: 'threshold', breaks: [] } }] })).toEqual(['threshold-missing-breaks']);
   });
 
   it('selection-modifier-conflicts-pan', () => {

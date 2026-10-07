@@ -90,9 +90,14 @@ describe('validateTreeConfig — nodes', () => {
     expect(result.errors.some((e) => e.rule === 'node-missing-id')).toBe(true);
   });
 
-  it('flags missing name when contentKey is the default "name"', () => {
+  it('warns (a blank card, not a crash) on a missing name under the default contentKey', () => {
     const result = validateTreeConfig({ id: 'x', children: [] });
-    expect(result.errors.some((e) => e.rule === 'node-missing-name')).toBe(true);
+    expect(result.ok).toBe(true);
+    expect(result.warnings.map((w) => w.rule)).toEqual(['node-missing-name']);
+  });
+
+  it('accepts a numeric name (the default template prints it)', () => {
+    expect(validateTreeConfig({ id: 'x', name: 2024 }).issues).toEqual([]);
   });
 
   it('does NOT require name when contentKey is "data"', () => {
@@ -111,14 +116,34 @@ describe('validateTreeConfig — nodes', () => {
     expect(result.warnings.some((w) => w.rule === 'contentKey-data-without-payload')).toBe(true);
   });
 
-  it('flags missing children', () => {
-    const result = validateTreeConfig({ id: 'x', name: 'X' });
-    expect(result.errors.some((e) => e.rule === 'children-missing')).toBe(true);
+  it('accepts leaves without children, or with children: null (read as [])', () => {
+    const result = validateTreeConfig({
+      options: {},
+      data: { id: 'r', name: 'Root', children: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B', children: null }] },
+    });
+    expect(result.issues).toEqual([]);
   });
 
-  it('flags children that is not an array', () => {
-    const result = validateTreeConfig({ id: 'x', name: 'X', children: null });
+  it('flags children that is a non-array value', () => {
+    const result = validateTreeConfig({ id: 'x', name: 'X', children: {} });
     expect(result.errors.some((e) => e.rule === 'children-not-array')).toBe(true);
+  });
+
+  it('reads a bare root carrying per-node options and an org-card payload as a node, not the wrapper', () => {
+    const styled = validateTreeConfig({ id: 'r', name: 'Root', options: { nodeBGColor: '#eee' }, children: [] });
+    expect(styled.issues).toEqual([]);
+
+    const dupes = validateTreeConfig({
+      id: 'r',
+      name: 'R',
+      data: { id: 'x', name: 'Ann' },
+      options: { nodeBGColor: '#eee' },
+      children: [
+        { id: 'r', name: 'dup' },
+        { id: 'c', name: 'C' },
+      ],
+    });
+    expect(dupes.errors.map((e) => e.rule)).toEqual(['duplicate-id']);
   });
 
   it('detects duplicate ids deep in the tree', () => {

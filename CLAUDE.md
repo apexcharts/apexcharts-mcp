@@ -125,11 +125,12 @@ The data-format rules in `apexcharts-skill`'s `SKILL.md` (section 2 — Series D
 
 Highlights:
 
-- Pie / donut / polarArea / radialBar use a **flat number array** for `series` plus a `labels` array. Everything else uses `[{ name, data }]`.
-- `radialBar` values are 0–100 (percentages).
+- Pie / donut / polarArea / radialBar use a **flat number array** for `series` plus a `labels` array, or series objects whose `data` holds `{ x, y }` points. Everything else uses `[{ name, data }]`.
+- `radialBar` values fall inside `plotOptions.radialBar.min`/`max` (default 0 to 100).
 - Use `null`, never `undefined`, for missing data points.
-- `chart.stacked` only works with `bar` and `area`.
-- Multiple y-axes must be an array, each with `seriesName`.
+- `chart.stacked` works with `bar`, `area` and `line` (including mixed charts).
+- Multiple y-axes must be an array, each with `seriesName`. Horizontal bars take only one.
+- A validator rule is a claim about the library. Before adding or changing one, confirm it in the library source at the release tag and run the library's own samples through it: every rule the October 2026 audit removed or relaxed had been written from the skill text alone.
 
 ### Stdio transport caveat
 

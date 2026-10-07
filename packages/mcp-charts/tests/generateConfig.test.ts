@@ -26,9 +26,12 @@ describe('generateChartConfig', () => {
     expect((config.labels as string[]).length).toBe(series.length);
   });
 
-  it('honors stacked option only for bar/area types', () => {
+  it('honors stacked option only for bar/area/line types', () => {
     const stackedBar = generateChartConfig({ type: 'bar', stacked: true });
     expect((stackedBar.chart as { stacked?: boolean }).stacked).toBe(true);
+
+    const stackedLine = generateChartConfig({ type: 'line', stacked: true });
+    expect((stackedLine.chart as { stacked?: boolean }).stacked).toBe(true);
 
     const stackedScatter = generateChartConfig({ type: 'scatter', stacked: true });
     expect((stackedScatter.chart as { stacked?: boolean }).stacked).toBeUndefined();

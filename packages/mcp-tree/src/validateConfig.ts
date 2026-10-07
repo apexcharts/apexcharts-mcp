@@ -32,8 +32,10 @@ function isObject(v: unknown): v is AnyObj {
  * `{ options, data }` shape from generateTreeConfig or a bare root NestedNode
  * (in which case `options` is treated as empty).
  *
- * Encodes the rules from apextree-skill SKILL.md §1 critical rules and §2
- * data format.
+ * Encodes the rules from apextree-skill SKILL.md, as checked against the
+ * apextree 2.1.1 runtime: a node's `children` may be omitted (the library
+ * reads it as `[]`), and `options` / `data` are also per-node fields, so a
+ * bare root is recognised by its `id`.
  */
 export function validateTreeConfig(config: unknown): ValidationResult {
   const issues: ValidationIssue[] = [];
@@ -48,7 +50,10 @@ export function validateTreeConfig(config: unknown): ValidationResult {
     return finalize(issues);
   }
 
-  const wrapped = isObject(config.options) || ('data' in config && 'options' in config);
+  // `options` (style overrides) and `data` (an org-card payload) are per-node
+  // fields too, so their presence alone does not mean the wrapper: a node has
+  // an `id`, the wrapper does not.
+  const wrapped = !('id' in config) && ('data' in config || 'options' in config);
   const data = wrapped ? config.data : config;
   const options = wrapped && isObject(config.options) ? config.options : {};
 
@@ -59,7 +64,7 @@ export function validateTreeConfig(config: unknown): ValidationResult {
       severity: 'error',
       rule: 'missing-data',
       path: 'data',
-      message: 'data is required — it holds the root NestedNode.',
+      message: 'data is required: it holds the root NestedNode.',
       fix: 'Add `data: { id, name, children: [] }`.',
     });
     return finalize(issues);
@@ -125,17 +130,17 @@ function checkOptions(options: AnyObj, basePath: string, issues: ValidationIssue
         message: `theme must be a non-empty string. Got ${JSON.stringify(options.theme)}.`,
       });
     } else if (!VALID_THEMES.has(options.theme)) {
-      // Since apextree 2.1 any other string names a theme registered on the
-      // shared family registry (registerTheme from @apex/commons) and behaves
-      // like 'custom' plus that theme's --apx-* tokens.
+      // Since apextree 2.1 any other string names a theme on the registry the
+      // Apex family shares (globalThis.__apexcharts_themes__). apextree exports
+      // no registerTheme of its own; ApexCharts.registerTheme writes there.
       issues.push({
         severity: 'warning',
         rule: 'unregistered-theme-name',
         path: px('theme'),
         message:
-          `theme "${options.theme}" is not a built-in (light/dark/custom). Since apextree 2.1 it is ` +
-          'treated as a family-registry theme name and needs registerTheme to have been called with it.',
-        fix: "Use light/dark/custom, or register the theme first via registerTheme from '@apex/commons'.",
+          `theme "${options.theme}" is not a built-in (light/dark/custom). Since apextree 2.1 it names a theme ` +
+          'on the registry the Apex family shares; if nothing registered it, the tree falls back to the default palette.',
+        fix: `Use light/dark/custom, or register it first with ApexCharts.registerTheme('${options.theme}', { tokens: { ... } }).`,
       });
     }
   }
@@ -192,18 +197,18 @@ function checkNode(
     seenIds.add(node.id);
   }
 
-  if (typeof node.name !== 'string' || node.name.length === 0) {
-    // Only required when the label-rendering contentKey is the default 'name'.
-    // When contentKey is 'data' or custom, name may legitimately be absent.
-    if (contentKey === 'name') {
-      issues.push({
-        severity: 'error',
-        rule: 'node-missing-name',
-        path: `${here}.name`,
-        message: 'node.name is required when contentKey is "name" (the default).',
-        fix: 'Either set contentKey to a different field and put the label there, or add `name`.',
-      });
-    }
+  // The label under the default contentKey 'name'. The default template prints
+  // String(value), so a number is fine; a missing name renders a blank card.
+  // With contentKey 'data' or custom, name may legitimately be absent.
+  const label = node.name;
+  if (contentKey === 'name' && !(typeof label === 'number' || (typeof label === 'string' && label.length > 0))) {
+    issues.push({
+      severity: 'warning',
+      rule: 'node-missing-name',
+      path: `${here}.name`,
+      message: 'This node has no name, which is the label under the default contentKey "name", so its card renders blank.',
+      fix: 'Add `name`, or set contentKey to the field that holds the label.',
+    });
   }
 
   if (contentKey === 'data' && node.data === undefined) {
@@ -212,32 +217,28 @@ function checkNode(
       rule: 'contentKey-data-without-payload',
       path: `${here}.data`,
       message:
-        'contentKey is "data" (org-card mode) but this node has no `data` payload — the card will render empty.',
+        'contentKey is "data" (org-card mode) but this node has no `data` payload, so the card renders empty.',
       fix: 'Either populate `node.data: { name, title, subtitle, imageURL, ... }` or change contentKey.',
     });
   }
 
-  if (!('children' in node)) {
-    issues.push({
-      severity: 'error',
-      rule: 'children-missing',
-      path: `${here}.children`,
-      message: 'children is required on every node — use `children: []` for leaves.',
-    });
-    return;
-  }
+  // A leaf may omit children (or set it to null): the library reads it as [].
+  // A lazy node (hasChildren: true) omits it on purpose.
+  const children = node.children;
+  if (children === undefined || children === null) return;
 
-  if (!Array.isArray(node.children)) {
+  if (!Array.isArray(children)) {
     issues.push({
       severity: 'error',
       rule: 'children-not-array',
       path: `${here}.children`,
-      message: 'children must be an array (empty array for leaves, not undefined).',
+      message: 'children must be an array of child nodes; any other value crashes the layout.',
+      fix: 'Use `children: [...]`, or omit it for a leaf.',
     });
     return;
   }
 
-  node.children.forEach((child, i) => {
+  children.forEach((child, i) => {
     checkNode(child, `${here}.children[${i}]`, seenIds, contentKey, issues);
   });
 }
