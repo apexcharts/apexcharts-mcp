@@ -1,6 +1,6 @@
 {
   "name": "apexcharts-mcp",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "mcpName": "com.apexcharts/mcp",
   "description": "Model Context Protocol server exposing the ApexCharts ecosystem (charts, gantt, tree, sankey, grid, stock, maps) as tools for AI assistants",
   "repository": {
