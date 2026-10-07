@@ -73,14 +73,15 @@ describe('validateGridConfig — columns', () => {
     expect(result.errors.some((e) => e.rule === 'duplicate-column-key')).toBe(true);
   });
 
-  it('flags column.type "date" with a helpful fix', () => {
+  // apex-grid 3.x has a real 'date' type and ten presentation types. An older
+  // rule called 'date' a mistake and rejected configs the grid renders.
+  it('accepts every apex-grid column type, date included', () => {
+    const types = ['string', 'number', 'boolean', 'select', 'rating', 'date', 'image', 'currency', 'avatar', 'badge', 'progress', 'sparkline', 'status'];
     const result = validateGridConfig({
-      columns: [{ key: 'when', type: 'date' }],
-      data: [{ when: '2026-01-01' }],
+      columns: types.map((type) => ({ key: 'v', type })),
+      data: [{ v: 1 }],
     });
-    const issue = result.errors.find((e) => e.rule === 'column-type-date');
-    expect(issue).toBeDefined();
-    expect(issue?.fix).toMatch(/number.*string/i);
+    expect(result.errors.filter((e) => e.rule === 'column-invalid-type')).toEqual([]);
   });
 
   it('flags other invalid column.type values', () => {

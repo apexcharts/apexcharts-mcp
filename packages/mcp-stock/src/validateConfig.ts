@@ -1,4 +1,4 @@
-import { ALL_INDICATOR_KEYS, isKnownIndicator, isOscillator } from './indicators.js';
+import { ALL_INDICATOR_KEYS, isKnownIndicator } from './indicators.js';
 
 export type Severity = 'error' | 'warning';
 
@@ -280,16 +280,14 @@ function checkIndicators(plotOptions: unknown, issues: ValidationIssue[]): void 
 
   const path = 'plotOptions.stockChart.indicators';
 
-  // Collect the (key, enabled) pairs for both accepted shapes.
-  let entries: Array<{ key: unknown; enabled: boolean }>;
+  // The indicator keys, from either accepted shape. Any number of overlays and
+  // oscillators may be active at once: apexstock 0.4.0 lifted the old
+  // one-oscillator cap, so there is nothing to count here.
+  let keys: unknown[];
   if (Array.isArray(indicators)) {
-    entries = indicators.map((key) => ({ key, enabled: true }));
+    keys = indicators;
   } else if (isObject(indicators)) {
-    entries = Object.entries(indicators).map(([key, cfg]) => ({
-      key,
-      // object-map form: enabled unless explicitly `enabled: false`.
-      enabled: !(isObject(cfg) && cfg.enabled === false),
-    }));
+    keys = Object.keys(indicators);
   } else {
     issues.push({
       severity: 'error',
@@ -300,8 +298,7 @@ function checkIndicators(plotOptions: unknown, issues: ValidationIssue[]): void 
     return;
   }
 
-  let enabledOscillators = 0;
-  entries.forEach(({ key, enabled }) => {
+  keys.forEach((key) => {
     if (typeof key !== 'string') {
       issues.push({
         severity: 'error',
@@ -319,18 +316,6 @@ function checkIndicators(plotOptions: unknown, issues: ValidationIssue[]): void 
         message: `Unknown indicator "${key}". Use the full lowercase phrase.`,
         fix: `Valid keys: ${ALL_INDICATOR_KEYS.join(', ')}.`,
       });
-      return;
     }
-    if (enabled && isOscillator(key)) enabledOscillators += 1;
   });
-
-  if (enabledOscillators > 1) {
-    issues.push({
-      severity: 'warning',
-      rule: 'multiple-oscillators',
-      path,
-      message: `${enabledOscillators} oscillators enabled, but only one oscillator pane is active at a time — the last one wins.`,
-      fix: 'Enable a single oscillator; overlays (e.g. moving average, bollinger bands) can stack.',
-    });
-  }
 }

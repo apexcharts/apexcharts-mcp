@@ -101,6 +101,11 @@ export const SURFACE_CONFIG = {
     // named type the package exports lands in the apiTypes dimension instead,
     // which is the right shape for this product rather than a gap.
     optionsRootType: null,
+    // Its enumeration is the column type union, thirteen types at 3.5.0. The
+    // validator kept only three, so apexgrid_validate_config called
+    // `type: 'date'` a mistake while the bundled skill documented it.
+    typeUnion: { host: 'ColumnConfiguration', prop: 'type', label: 'column type', docPath: 'columns[].type' },
+    catalogs: [{ file: 'packages/mcp-grid/src/validateConfig.ts', symbol: 'VALID_TYPES' }],
   },
   'apexstock-skill': {
     classes: ['ApexStock'],

@@ -135,22 +135,14 @@ describe('validateStockConfig — indicators', () => {
     expect(result.warnings.map((w) => w.rule)).toContain('unknown-indicator');
   });
 
-  it('warns when more than one oscillator is enabled (array form)', () => {
-    const result = validateStockConfig({
-      ...okConfig,
-      plotOptions: { stockChart: { indicators: ['rsi', 'macd'] } },
-    });
-    expect(result.warnings.map((w) => w.rule)).toContain('multiple-oscillators');
-  });
-
-  it('does not count a disabled oscillator in the object-map form', () => {
-    const result = validateStockConfig({
-      ...okConfig,
-      plotOptions: {
-        stockChart: { indicators: { rsi: { enabled: true }, macd: { enabled: false } } },
-      },
-    });
-    expect(result.warnings.map((w) => w.rule)).not.toContain('multiple-oscillators');
+  // apexstock 0.4.0 lifted the one-oscillator cap: each oscillator gets its own
+  // pane. An older rule warned on this and told the caller to drop one.
+  it('accepts several oscillators at once, in both indicator shapes', () => {
+    for (const indicators of [['rsi', 'macd', 'volumes'], { rsi: { enabled: true }, macd: { period: 12 } }]) {
+      const result = validateStockConfig({ ...okConfig, plotOptions: { stockChart: { indicators } } });
+      expect(result.ok).toBe(true);
+      expect(result.warnings).toEqual([]);
+    }
   });
 
   it('flags a wrong indicators shape', () => {

@@ -17,7 +17,25 @@ export interface ValidationResult {
 
 type AnyObj = Record<string, unknown>;
 
-const VALID_TYPES = new Set(['string', 'number', 'boolean']);
+// apex-grid's DataType union. The first three drive sorting, filtering and the
+// editor; the rest are presentation types over one of those values. The
+// chart-type gate (scripts/_surface.mjs) checks this list against the pinned
+// library, so a type apex-grid adds fails CI here instead of being rejected.
+const VALID_TYPES = new Set([
+  'string',
+  'number',
+  'boolean',
+  'select',
+  'rating',
+  'date',
+  'image',
+  'currency',
+  'avatar',
+  'badge',
+  'progress',
+  'sparkline',
+  'status',
+]);
 
 function isObject(v: unknown): v is AnyObj {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -29,7 +47,7 @@ function isObject(v: unknown): v is AnyObj {
  *   - missing/non-array columns or data
  *   - column.key required and must be a real key of the data row type
  *   - duplicate column.key
- *   - column.type must be string/number/boolean (no 'date' — common mistake)
+ *   - column.type must be one of apex-grid's column types
  *   - sort/filter must be boolean or object (per-column opt-in)
  *   - row shape must be an object
  */
@@ -169,25 +187,12 @@ function checkColumns(
 
     if (column.type !== undefined) {
       if (typeof column.type !== 'string' || !VALID_TYPES.has(column.type)) {
-        // Helpful guidance for the very common 'date' mistake.
-        if (column.type === 'date') {
-          issues.push({
-            severity: 'error',
-            rule: 'column-type-date',
-            path: `columns[${i}].type`,
-            message:
-              'apex-grid has no "date" column type — only "string" | "number" | "boolean".',
-            fix:
-              'Use "number" (epoch timestamps) or "string" (ISO strings) with a custom `comparer` and `cellTemplate` for date formatting.',
-          });
-        } else {
-          issues.push({
-            severity: 'error',
-            rule: 'column-invalid-type',
-            path: `columns[${i}].type`,
-            message: `column.type must be one of string/number/boolean. Got ${JSON.stringify(column.type)}.`,
-          });
-        }
+        issues.push({
+          severity: 'error',
+          rule: 'column-invalid-type',
+          path: `columns[${i}].type`,
+          message: `column.type must be one of ${[...VALID_TYPES].join(', ')}. Got ${JSON.stringify(column.type)}.`,
+        });
       }
     }
 

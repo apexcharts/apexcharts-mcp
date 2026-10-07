@@ -49,9 +49,9 @@ export function registerGridTools(server: McpServer): void {
       description:
         'Check an apex-grid `{ columns, data }` config against apexgrid-skill rules: ' +
         'columns/data required and array-shaped, every column.key must be a real key of ' +
-        'the data rows, column.key unique, type ∈ {string, number, boolean} (no "date" — ' +
-        'common mistake), sort/filter is boolean or config object. Returns structured ' +
-        'issues with stable rule ids.',
+        'the data rows, column.key unique, type is one of apex-grid\'s column types ' +
+        '(string, number, boolean, date, currency, select and the other presentation types), ' +
+        'sort/filter is boolean or config object. Returns structured issues with stable rule ids.',
       inputSchema: {
         config: z
           .record(z.string(), z.unknown())

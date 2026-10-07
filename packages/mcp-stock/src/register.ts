@@ -36,7 +36,7 @@ export function registerStockTools(server: McpServer): void {
           .union([z.array(z.string()), z.record(z.string(), z.unknown())])
           .optional()
           .describe(
-            'Indicators to enable: a list of keys (e.g. ["moving average", "rsi"]) or a keyed config map (e.g. { "bollinger bands": { period: 20, stdDev: 2 } }). Overlays stack; only one oscillator is active at a time.',
+            'Indicators to enable: a list of keys (e.g. ["moving average", "rsi"]) or a keyed config map (e.g. { "bollinger bands": { period: 20, stdDev: 2 } }). Overlays and oscillators both stack; each oscillator gets its own pane.',
           ),
       },
     },
@@ -56,8 +56,8 @@ export function registerStockTools(server: McpServer): void {
         'Check an ApexStock options object against the rules in apexstock-skill ' +
         '(missing series/data, flat o/h/l/c keys instead of a y:[o,h,l,c] array, ' +
         'malformed or inconsistent OHLC tuples, missing/invalid x, non-ascending ' +
-        'data, invalid theme.mode, unknown indicator keys, and more than one ' +
-        'oscillator enabled at once). Returns structured issues with stable rule ids.',
+        'data, invalid theme.mode, and unknown indicator keys). Returns structured ' +
+        'issues with stable rule ids.',
       inputSchema: {
         config: z.record(z.string(), z.unknown()).describe('The ApexStock options object to validate.'),
       },
