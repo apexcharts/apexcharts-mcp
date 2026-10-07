@@ -1,0 +1,32 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.apexcharts/mcp",
+  "title": "ApexCharts",
+  "description": "Generates and validates configs for ApexCharts charts, grid, gantt, tree, sankey, stock and maps.",
+  "websiteUrl": "https://apexcharts.com/docs/ai/mcp/apexcharts/",
+  "repository": {
+    "url": "https://github.com/apexcharts/apexcharts-mcp",
+    "source": "github"
+  },
+  "version": "0.9.1",
+  "icons": [
+    { "src": "https://apexcharts.com/favicon.svg", "mimeType": "image/svg+xml", "sizes": ["any"] },
+    { "src": "https://apexcharts.com/apple-touch-icon.png", "mimeType": "image/png", "sizes": ["180x180"] }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.apexcharts.com/mcp"
+    }
+  ],
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "apexcharts-mcp",
+      "version": "0.9.1",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

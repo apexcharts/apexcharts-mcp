@@ -8,6 +8,43 @@ One MCP, seven products. Tools are namespaced per product (`apexcharts_*`, `apex
 
 Pick your editor / client. You only need to do this once.
 
+### Hosted server (nothing to install)
+
+The quickest way: point your client at the hosted server, `https://mcp.apexcharts.com/mcp`. It needs no Node.js and stays on the latest release.
+
+**Claude Code**
+
+```bash
+claude mcp add --transport http apexcharts https://mcp.apexcharts.com/mcp
+```
+
+**Cursor**, in `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "apexcharts": {
+      "url": "https://mcp.apexcharts.com/mcp"
+    }
+  }
+}
+```
+
+**VS Code**, in `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "apexcharts": {
+      "type": "http",
+      "url": "https://mcp.apexcharts.com/mcp"
+    }
+  }
+}
+```
+
+Any other client that accepts a remote MCP server URL (Streamable HTTP) connects the same way. To run the server on your own machine instead, use one of the local installs below.
+
 ### Claude Code
 
 ```bash
@@ -44,7 +81,7 @@ Add to `~/.cursor/mcp.json`:
 }
 ```
 
-After installing, restart the client. Your AI assistant will now have tools for every ApexCharts product available — no further commands needed.
+After installing, restart the client. Your AI assistant now has tools for every ApexCharts product, with no further commands needed.
 
 ## What you can ask the AI
 

@@ -154,6 +154,14 @@ npm 10.9.x crashes with `Cannot read properties of null (reading 'edgesOut')` on
 
 Security pins for transitive dependencies live in `overrides` (the MCP SDK's own tree pulls in `proxy-addr`, `qs`, `ip-address`, `fast-uri` and `hono`). The hosted endpoint is public, so keep `npm audit --omit=dev` at zero before deploying it.
 
+Every tool input must declare a JSON Schema type: never `z.unknown()` or `z.any()` at the top level of an input schema. A client that cannot see the shape guesses, and Claude Code guesses a string, which is how every `*_validate_config` call once failed with `config-not-object`. `tests/tool-schemas.test.ts` fails on an untyped input.
+
+### Releasing and the MCP Registry
+
+A commit titled `release: X.Y.Z`, pushed to `main`, publishes to npm (`.github/workflows/publish.yml`), then tags and drafts the GitHub release. Bump the version in **both** `package.json` and `server.json` (the server and its npm package entry); `tests/registry.test.ts` fails when they disagree.
+
+`server.json` is the official MCP Registry listing, under the domain namespace `com.apexcharts/mcp` (the npm package declares it as `mcpName`). After npm has the new version, publish the listing with the registry's `mcp-publisher` CLI: `mcp-publisher login http --domain apexcharts.com --private-key <hex key>`, then `mcp-publisher publish`. The login proves the domain against the public key served at `https://apexcharts.com/.well-known/mcp-registry-auth` (website repo, `nextjs/public/.well-known/`). The private key is held by the owner and never committed.
+
 ### Knowledge base sources
 
 Reference docs come from the individual `*-skill` npm packages and are NOT vendored here. To refresh them, bump the skill version in the root `package.json` and `npm install`. Source of truth for each lives in its own repo (apexcharts/apexcharts-skill, apexcharts/apexgantt-skill, …). Open doc PRs there, not here.
