@@ -12,7 +12,7 @@ export function registerMapsTools(server: McpServer): void {
     'apexmaps_generate_config',
     {
       title: 'Generate ApexMaps config',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'Generate ApexMaps config' },
       description:
         'Build a minimal valid ApexMaps options object for a geographic visualization. ' +
         'Supports the six series types: choropleth (default), bubble, marker, arc, line, hexbin. ' +
@@ -76,7 +76,7 @@ export function registerMapsTools(server: McpServer): void {
     'apexmaps_validate_config',
     {
       title: 'Validate ApexMaps config',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'Validate ApexMaps config' },
       description:
         'Check an ApexMaps options object against what the library does with it: geo.map present ' +
         'and a built-in map id (or a URL / inline geometry), hex layouts only where one exists, ' +
@@ -101,7 +101,7 @@ export function registerMapsTools(server: McpServer): void {
     'apexmaps_get_reference',
     {
       title: 'Get ApexMaps reference doc',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'Get ApexMaps reference doc' },
       description:
         'Read authoritative ApexMaps documentation from the bundled apexmaps-skill ' +
         'knowledge base. Call with no arguments to list available files; call with `file` ' +

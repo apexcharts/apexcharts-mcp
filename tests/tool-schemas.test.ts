@@ -64,13 +64,16 @@ describe('tool input schemas', () => {
   });
 
   // Claude's connectors directory requires a title plus readOnlyHint or
-  // destructiveHint on every tool; ChatGPT's requires readOnlyHint,
-  // destructiveHint and openWorldHint as explicit booleans.
+  // destructiveHint on every tool, and its submission form reads the title
+  // from annotations.title, not the top-level title clients display. ChatGPT's
+  // requires readOnlyHint, destructiveHint and openWorldHint as explicit
+  // booleans. Both titles are set, and must say the same thing.
   it('gives every tool a title and the behaviour hints directories require', () => {
     const lacking = tools
       .filter(
         (t) =>
           !t.title ||
+          t.annotations?.title !== t.title ||
           typeof t.annotations?.readOnlyHint !== 'boolean' ||
           typeof t.annotations?.destructiveHint !== 'boolean' ||
           typeof t.annotations?.openWorldHint !== 'boolean',

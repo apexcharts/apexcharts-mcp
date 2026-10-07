@@ -12,7 +12,7 @@ export function registerGanttTools(server: McpServer): void {
     'apexgantt_generate_config',
     {
       title: 'Generate ApexGantt config',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'Generate ApexGantt config' },
       description:
         'Build a minimal valid ApexGantt options object. Generates a placeholder ' +
         'schedule (phases, dependencies, a milestone) when `tasks` is omitted, so ' +
@@ -64,7 +64,7 @@ export function registerGanttTools(server: McpServer): void {
     'apexgantt_validate_config',
     {
       title: 'Validate ApexGantt config',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'Validate ApexGantt config' },
       description:
         'Check an ApexGantt options object against what the library does with it ' +
         '(missing id/name, tasks missing the dates the library requires, an incomplete ' +
@@ -89,7 +89,7 @@ export function registerGanttTools(server: McpServer): void {
     'apexgantt_get_reference',
     {
       title: 'Get ApexGantt reference doc',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'Get ApexGantt reference doc' },
       description:
         'Read authoritative ApexGantt documentation from the bundled apexgantt-skill ' +
         'knowledge base. Call with no arguments to list all available files. Call with ' +

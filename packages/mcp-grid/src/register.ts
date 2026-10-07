@@ -12,7 +12,7 @@ export function registerGridTools(server: McpServer): void {
     'apexgrid_generate_config',
     {
       title: 'Generate apex-grid config',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'Generate apex-grid config' },
       description:
         'Build a minimal valid `<apex-grid>` config: `{ columns, data }`. When both ' +
         'are omitted, a small users table is generated. When only `columns` is omitted, ' +
@@ -49,7 +49,7 @@ export function registerGridTools(server: McpServer): void {
     'apexgrid_validate_config',
     {
       title: 'Validate apex-grid config',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'Validate apex-grid config' },
       description:
         'Check an apex-grid `{ columns, data }` config against apexgrid-skill rules: ' +
         'columns/data required and array-shaped, every column.key must be a real key of ' +
@@ -74,7 +74,7 @@ export function registerGridTools(server: McpServer): void {
     'apexgrid_get_reference',
     {
       title: 'Get apex-grid reference doc',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'Get apex-grid reference doc' },
       description:
         'Read authoritative apex-grid documentation from the bundled apexgrid-skill ' +
         'knowledge base. Call with no arguments to list available files; call with `file` ' +

@@ -12,7 +12,7 @@ export function registerSankeyTools(server: McpServer): void {
     'apexsankey_generate_config',
     {
       title: 'Generate ApexSankey config',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'Generate ApexSankey config' },
       description:
         'Build a minimal valid ApexSankey config split into `options` (constructor) ' +
         'and `data` (render payload). Generates a 5-node placeholder flow when nodes/edges ' +
@@ -55,7 +55,7 @@ export function registerSankeyTools(server: McpServer): void {
     'apexsankey_validate_config',
     {
       title: 'Validate ApexSankey config',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'Validate ApexSankey config' },
       description:
         'Check an ApexSankey config against what the library does with it (unique node ids, ' +
         'edges reference real nodes, no negative values, no self-loops, no parallel edges ' +
@@ -78,7 +78,7 @@ export function registerSankeyTools(server: McpServer): void {
     'apexsankey_get_reference',
     {
       title: 'Get ApexSankey reference doc',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'Get ApexSankey reference doc' },
       description:
         'Read authoritative ApexSankey documentation from the bundled apexsankey-skill ' +
         'knowledge base. Call with no arguments to list available files; call with `file` ' +

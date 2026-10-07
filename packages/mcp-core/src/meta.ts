@@ -17,7 +17,7 @@ export function registerMetaTools(server: McpServer, modules: readonly ProductMo
     'apexcharts_list_products',
     {
       title: 'List ApexCharts products exposed by this server',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'List ApexCharts products exposed by this server' },
       description:
         'Return every product (charts, gantt, tree, sankey, grid, stock, maps) currently exposed ' +
         'by this MCP server, with a "when to pick this" hint and the tool names it ' +

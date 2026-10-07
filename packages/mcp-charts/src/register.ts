@@ -23,7 +23,7 @@ export function registerChartsTools(server: McpServer): void {
     'apexcharts_generate_config',
     {
       title: 'Generate ApexCharts config',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'Generate ApexCharts config' },
       description:
         'Build a minimal valid ApexCharts options object for a given chart type. ' +
         'Picks the correct series data format (axis vs non-axis) and supplies ' +
@@ -69,7 +69,7 @@ export function registerChartsTools(server: McpServer): void {
     'apexcharts_validate_config',
     {
       title: 'Validate ApexCharts config',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'Validate ApexCharts config' },
       description:
         'Check an ApexCharts options object against the data-format rules and known ' +
         'pitfalls (wrong series shape for chart type, radialBar values outside the min/max domain, ' +
@@ -92,7 +92,7 @@ export function registerChartsTools(server: McpServer): void {
     'apexcharts_list_types',
     {
       title: 'List supported chart types',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'List supported chart types' },
       description:
         'Return every ApexCharts chart type this server supports, with name, description, ' +
         'family (cartesian/bar/financial/circular/grid/radar/unit), series format (axis vs non-axis), ' +
@@ -129,7 +129,7 @@ export function registerChartsTools(server: McpServer): void {
     'apexcharts_get_reference',
     {
       title: 'Get ApexCharts reference doc',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'Get ApexCharts reference doc' },
       description:
         'Read authoritative ApexCharts documentation from the bundled apexcharts-skill ' +
         'knowledge base. Call with no arguments to list all available files (SKILL.md plus ' +

@@ -12,7 +12,7 @@ export function registerTreeTools(server: McpServer): void {
     'apextree_generate_config',
     {
       title: 'Generate ApexTree config',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'Generate ApexTree config' },
       description:
         'Build a minimal valid ApexTree config split into `options` (constructor) ' +
         'and `data` (the root NestedNode passed to `tree.render(data)`). Generates a ' +
@@ -75,7 +75,7 @@ export function registerTreeTools(server: McpServer): void {
     'apextree_validate_config',
     {
       title: 'Validate ApexTree config',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'Validate ApexTree config' },
       description:
         'Check an ApexTree config against what the library does with it: root is a NestedNode, ' +
         'every node has an id and a label, children (when present) is an array, ids unique ' +
@@ -99,7 +99,7 @@ export function registerTreeTools(server: McpServer): void {
     'apextree_get_reference',
     {
       title: 'Get ApexTree reference doc',
-      annotations: READ_ONLY_TOOL,
+      annotations: { ...READ_ONLY_TOOL, title: 'Get ApexTree reference doc' },
       description:
         'Read authoritative ApexTree documentation from the bundled apextree-skill ' +
         'knowledge base. Call with no arguments to list available files; call with `file` ' +
