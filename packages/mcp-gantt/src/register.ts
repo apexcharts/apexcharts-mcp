@@ -1,6 +1,8 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 
+import { READ_ONLY_TOOL } from '@apexcharts-mcp/core';
+
 import { generateGanttConfig } from './generateConfig.js';
 import { isKnownReference, readKnownFile, REFERENCE_INDEX } from './skill.js';
 import { validateGanttConfig } from './validateConfig.js';
@@ -10,6 +12,7 @@ export function registerGanttTools(server: McpServer): void {
     'apexgantt_generate_config',
     {
       title: 'Generate ApexGantt config',
+      annotations: READ_ONLY_TOOL,
       description:
         'Build a minimal valid ApexGantt options object. Generates a placeholder ' +
         'schedule (phases, dependencies, a milestone) when `tasks` is omitted, so ' +
@@ -61,6 +64,7 @@ export function registerGanttTools(server: McpServer): void {
     'apexgantt_validate_config',
     {
       title: 'Validate ApexGantt config',
+      annotations: READ_ONLY_TOOL,
       description:
         'Check an ApexGantt options object against the rules in apexgantt-skill ' +
         '(missing id/name/startTime, duplicate ids, orphan parentId, milestone with ' +
@@ -84,6 +88,7 @@ export function registerGanttTools(server: McpServer): void {
     'apexgantt_get_reference',
     {
       title: 'Get ApexGantt reference doc',
+      annotations: READ_ONLY_TOOL,
       description:
         'Read authoritative ApexGantt documentation from the bundled apexgantt-skill ' +
         'knowledge base. Call with no arguments to list all available files. Call with ' +

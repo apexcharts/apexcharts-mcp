@@ -1,6 +1,8 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 
+import { READ_ONLY_TOOL } from '@apexcharts-mcp/core';
+
 import { generateGridConfig } from './generateConfig.js';
 import { isKnownReference, readKnownFile, REFERENCE_INDEX } from './skill.js';
 import { validateGridConfig } from './validateConfig.js';
@@ -10,6 +12,7 @@ export function registerGridTools(server: McpServer): void {
     'apexgrid_generate_config',
     {
       title: 'Generate apex-grid config',
+      annotations: READ_ONLY_TOOL,
       description:
         'Build a minimal valid `<apex-grid>` config: `{ columns, data }`. When both ' +
         'are omitted, a small users table is generated. When only `columns` is omitted, ' +
@@ -46,6 +49,7 @@ export function registerGridTools(server: McpServer): void {
     'apexgrid_validate_config',
     {
       title: 'Validate apex-grid config',
+      annotations: READ_ONLY_TOOL,
       description:
         'Check an apex-grid `{ columns, data }` config against apexgrid-skill rules: ' +
         'columns/data required and array-shaped, every column.key must be a real key of ' +
@@ -70,6 +74,7 @@ export function registerGridTools(server: McpServer): void {
     'apexgrid_get_reference',
     {
       title: 'Get apex-grid reference doc',
+      annotations: READ_ONLY_TOOL,
       description:
         'Read authoritative apex-grid documentation from the bundled apexgrid-skill ' +
         'knowledge base. Call with no arguments to list available files; call with `file` ' +

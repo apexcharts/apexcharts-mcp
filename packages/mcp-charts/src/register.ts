@@ -1,6 +1,8 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 
+import { READ_ONLY_TOOL } from '@apexcharts-mcp/core';
+
 import { CHART_CATALOG, SUPPORTED_CHART_TYPES, type ChartFamily } from './chartCatalog.js';
 import { generateChartConfig } from './generateConfig.js';
 import { isKnownReference, readKnownFile, REFERENCE_INDEX } from './skill.js';
@@ -21,6 +23,7 @@ export function registerChartsTools(server: McpServer): void {
     'apexcharts_generate_config',
     {
       title: 'Generate ApexCharts config',
+      annotations: READ_ONLY_TOOL,
       description:
         'Build a minimal valid ApexCharts options object for a given chart type. ' +
         'Picks the correct series data format (axis vs non-axis) and supplies ' +
@@ -66,6 +69,7 @@ export function registerChartsTools(server: McpServer): void {
     'apexcharts_validate_config',
     {
       title: 'Validate ApexCharts config',
+      annotations: READ_ONLY_TOOL,
       description:
         'Check an ApexCharts options object against the data-format rules and known ' +
         'pitfalls (wrong series shape for chart type, radialBar values out of 0–100 range, ' +
@@ -88,6 +92,7 @@ export function registerChartsTools(server: McpServer): void {
     'apexcharts_list_types',
     {
       title: 'List supported chart types',
+      annotations: READ_ONLY_TOOL,
       description:
         'Return every ApexCharts chart type this server supports, with name, description, ' +
         'family (cartesian/bar/financial/circular/grid/radar/unit), series format (axis vs non-axis), ' +
@@ -124,6 +129,7 @@ export function registerChartsTools(server: McpServer): void {
     'apexcharts_get_reference',
     {
       title: 'Get ApexCharts reference doc',
+      annotations: READ_ONLY_TOOL,
       description:
         'Read authoritative ApexCharts documentation from the bundled apexcharts-skill ' +
         'knowledge base. Call with no arguments to list all available files (SKILL.md plus ' +

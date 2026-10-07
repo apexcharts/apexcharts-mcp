@@ -63,6 +63,22 @@ describe('tool input schemas', () => {
     expect(untyped).toEqual([]);
   });
 
+  // Claude's connectors directory requires a title plus readOnlyHint or
+  // destructiveHint on every tool; ChatGPT's requires readOnlyHint,
+  // destructiveHint and openWorldHint as explicit booleans.
+  it('gives every tool a title and the behaviour hints directories require', () => {
+    const lacking = tools
+      .filter(
+        (t) =>
+          !t.title ||
+          typeof t.annotations?.readOnlyHint !== 'boolean' ||
+          typeof t.annotations?.destructiveHint !== 'boolean' ||
+          typeof t.annotations?.openWorldHint !== 'boolean',
+      )
+      .map((t) => t.name);
+    expect(lacking).toEqual([]);
+  });
+
   it('takes a config as an object and validates it', async () => {
     const result = await client.callTool({
       name: 'apexcharts_validate_config',

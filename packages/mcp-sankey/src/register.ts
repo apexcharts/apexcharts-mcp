@@ -1,6 +1,8 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 
+import { READ_ONLY_TOOL } from '@apexcharts-mcp/core';
+
 import { generateSankeyConfig } from './generateConfig.js';
 import { isKnownReference, readKnownFile, REFERENCE_INDEX } from './skill.js';
 import { validateSankeyConfig } from './validateConfig.js';
@@ -10,6 +12,7 @@ export function registerSankeyTools(server: McpServer): void {
     'apexsankey_generate_config',
     {
       title: 'Generate ApexSankey config',
+      annotations: READ_ONLY_TOOL,
       description:
         'Build a minimal valid ApexSankey config split into `options` (constructor) ' +
         'and `data` (render payload). Generates a 5-node placeholder flow when nodes/edges ' +
@@ -52,6 +55,7 @@ export function registerSankeyTools(server: McpServer): void {
     'apexsankey_validate_config',
     {
       title: 'Validate ApexSankey config',
+      annotations: READ_ONLY_TOOL,
       description:
         'Check an ApexSankey config against apexsankey-skill rules (unique node ids, ' +
         'edges reference real nodes, edge.value > 0, no self-loops, cycles flagged as ' +
@@ -74,6 +78,7 @@ export function registerSankeyTools(server: McpServer): void {
     'apexsankey_get_reference',
     {
       title: 'Get ApexSankey reference doc',
+      annotations: READ_ONLY_TOOL,
       description:
         'Read authoritative ApexSankey documentation from the bundled apexsankey-skill ' +
         'knowledge base. Call with no arguments to list available files; call with `file` ' +

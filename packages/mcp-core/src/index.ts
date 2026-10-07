@@ -1,3 +1,4 @@
+export { READ_ONLY_TOOL } from './annotations.js';
 export { registerMetaTools } from './meta.js';
 export type { ProductId, ProductMetadata, ProductModule } from './registry.js';
 export { createReferenceReader } from './skill-loader.js';

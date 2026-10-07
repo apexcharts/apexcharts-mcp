@@ -1,6 +1,8 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 
+import { READ_ONLY_TOOL } from '@apexcharts-mcp/core';
+
 import { generateMapsConfig } from './generateConfig.js';
 import { isKnownReference, readKnownFile, REFERENCE_INDEX } from './skill.js';
 import { validateMapsConfig } from './validateConfig.js';
@@ -10,6 +12,7 @@ export function registerMapsTools(server: McpServer): void {
     'apexmaps_generate_config',
     {
       title: 'Generate ApexMaps config',
+      annotations: READ_ONLY_TOOL,
       description:
         'Build a minimal valid ApexMaps options object for a geographic visualization. ' +
         'Supports the six series types: choropleth (default), bubble, marker, arc, line, hexbin. ' +
@@ -73,6 +76,7 @@ export function registerMapsTools(server: McpServer): void {
     'apexmaps_validate_config',
     {
       title: 'Validate ApexMaps config',
+      annotations: READ_ONLY_TOOL,
       description:
         'Check an ApexMaps options object against apexmaps-skill rules: geo.map present, ' +
         'known series types, arc from/to endpoints, line paths, bubble/marker coordinates ' +
@@ -96,6 +100,7 @@ export function registerMapsTools(server: McpServer): void {
     'apexmaps_get_reference',
     {
       title: 'Get ApexMaps reference doc',
+      annotations: READ_ONLY_TOOL,
       description:
         'Read authoritative ApexMaps documentation from the bundled apexmaps-skill ' +
         'knowledge base. Call with no arguments to list available files; call with `file` ' +

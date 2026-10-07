@@ -1,6 +1,8 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 
+import { READ_ONLY_TOOL } from '@apexcharts-mcp/core';
+
 import { generateTreeConfig } from './generateConfig.js';
 import { isKnownReference, readKnownFile, REFERENCE_INDEX } from './skill.js';
 import { validateTreeConfig } from './validateConfig.js';
@@ -10,6 +12,7 @@ export function registerTreeTools(server: McpServer): void {
     'apextree_generate_config',
     {
       title: 'Generate ApexTree config',
+      annotations: READ_ONLY_TOOL,
       description:
         'Build a minimal valid ApexTree config split into `options` (constructor) ' +
         'and `data` (the root NestedNode passed to `tree.render(data)`). Generates a ' +
@@ -72,6 +75,7 @@ export function registerTreeTools(server: McpServer): void {
     'apextree_validate_config',
     {
       title: 'Validate ApexTree config',
+      annotations: READ_ONLY_TOOL,
       description:
         'Check an ApexTree config against apextree-skill rules: root is a NestedNode, ' +
         'every node has id/name/children (children must be `[]` for leaves), ids unique ' +
@@ -95,6 +99,7 @@ export function registerTreeTools(server: McpServer): void {
     'apextree_get_reference',
     {
       title: 'Get ApexTree reference doc',
+      annotations: READ_ONLY_TOOL,
       description:
         'Read authoritative ApexTree documentation from the bundled apextree-skill ' +
         'knowledge base. Call with no arguments to list available files; call with `file` ' +

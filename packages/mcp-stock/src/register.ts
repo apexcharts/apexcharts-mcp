@@ -1,6 +1,8 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 
+import { READ_ONLY_TOOL } from '@apexcharts-mcp/core';
+
 import { generateStockConfig } from './generateConfig.js';
 import { isKnownReference, readKnownFile, REFERENCE_INDEX } from './skill.js';
 import { validateStockConfig } from './validateConfig.js';
@@ -10,6 +12,7 @@ export function registerStockTools(server: McpServer): void {
     'apexstock_generate_config',
     {
       title: 'Generate ApexStock config',
+      annotations: READ_ONLY_TOOL,
       description:
         'Build a minimal valid ApexStock options object for a financial / stock ' +
         'chart. Generates a placeholder OHLCV candle series when `data` is omitted, ' +
@@ -52,6 +55,7 @@ export function registerStockTools(server: McpServer): void {
     'apexstock_validate_config',
     {
       title: 'Validate ApexStock config',
+      annotations: READ_ONLY_TOOL,
       description:
         'Check an ApexStock options object against the rules in apexstock-skill ' +
         '(missing series/data, flat o/h/l/c keys instead of a y:[o,h,l,c] array, ' +
@@ -74,6 +78,7 @@ export function registerStockTools(server: McpServer): void {
     'apexstock_get_reference',
     {
       title: 'Get ApexStock reference doc',
+      annotations: READ_ONLY_TOOL,
       description:
         'Read authoritative ApexStock documentation from the bundled apexstock-skill ' +
         'knowledge base. Call with no arguments to list all available files. Call with ' +
