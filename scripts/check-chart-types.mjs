@@ -23,20 +23,23 @@
  *      five types, so validate_config returned a hard error for a config the
  *      library renders. Docs coverage would have passed that. This does not.
  *
- * Applies to the two products that enumerate their kinds this way: apexcharts
- * (`ApexChart.type`) and apexmaps (`Series.type`, its series union). Products
- * with no such union are listed as not applicable rather than skipped quietly.
+ * Applies to the three products that enumerate their kinds this way:
+ * apexcharts (`ApexChart.type`), apexmaps (`Series.type`, its series union)
+ * and apex-grid (`ColumnConfiguration.type`). Products with no such union are
+ * listed as not applicable rather than skipped quietly.
  *
  * Evidence is graded, never collapsed to a boolean. `declared` means the docs
- * write `type: 'icicle'` and an agent can copy it; `bare` means the word
- * appears, which for names like `line` or `unit` may be ordinary prose. Both
- * pass the gate, but a bare-only mention is reported as thin, because treating
- * it as full coverage is the silent-widening mistake this check exists to stop.
+ * write `type: 'icicle'` and an agent can copy it (for apexcharts, as a key of
+ * the `chart` object: a mixed chart's series take `type:` too); `bare` means
+ * the word appears, which for names like `line` or `unit` may be ordinary
+ * prose. Both pass the gate, but a bare-only mention is reported as thin,
+ * because treating it as full coverage is the silent-widening mistake this
+ * check exists to stop.
  *
  * Usage:
- *   node scripts/check-chart-types.mjs               # gate at each skill's pinned version
- *   node scripts/check-chart-types.mjs charts        # one product
- *   node scripts/check-chart-types.mjs --at 7.6.0    # gate at another version (retro-test)
+ *   node scripts/check-chart-types.mjs                    # gate at each skill's pinned version
+ *   node scripts/check-chart-types.mjs charts             # one product
+ *   node scripts/check-chart-types.mjs charts --at 7.6.0  # gate at another version (retro-test)
  *   node scripts/check-chart-types.mjs --json
  */
 import { SKILL_PACKAGES } from './_skill-meta.mjs';
@@ -55,7 +58,27 @@ const atIdx = argv.indexOf('--at');
 const atVersion = atIdx !== -1 ? argv[atIdx + 1] : null;
 const filter = argv.filter((a, i) => !a.startsWith('-') && argv[i - 1] !== '--at')[0];
 
+if (atIdx !== -1 && (!atVersion || atVersion.startsWith('-'))) {
+  console.error('--at needs a version: e.g. `charts --at 7.6.0`');
+  process.exit(2);
+}
+// A version number belongs to one library. Applied to every product, `--at
+// 8.0.0` tried to install apexmaps@8.0.0 and apex-grid@8.0.0, which do not exist.
+if (atVersion && !filter) {
+  console.error("--at pins one library's version, so it needs a product: e.g. `charts --at 7.6.0`");
+  process.exit(2);
+}
+
 const targets = selectSkills(SKILL_PACKAGES, filter);
+// A mistyped product must not pass the gate by checking nothing.
+if (!targets.length) {
+  console.error(`No skill matches "${filter}". Known: ${SKILL_PACKAGES.join(', ')}`);
+  process.exit(2);
+}
+if (atVersion && targets.length > 1) {
+  console.error(`--at pins one library's version, but "${filter}" matches ${targets.join(', ')}`);
+  process.exit(2);
+}
 const results = [];
 
 for (const pkg of targets) {
@@ -64,9 +87,9 @@ for (const pkg of targets) {
   if (r.applicable) {
     try {
       const docs = await loadDocs(pkg);
-      // --at overrides the pin for the whole run, which is how the gate is
-      // retro-tested: point it at a version released after the pin and confirm
-      // it names what that release added.
+      // --at overrides the pin for the one product named, which is how the gate
+      // is retro-tested: point it at a version released after the pin and
+      // confirm it names what that release added.
       const version = atVersion ?? docs.pinned;
       if (!version) throw new Error('SKILL.md has no metadata.library_version to gate against');
       const surface = await surfaceAt(docs.npm, version, cfg);
@@ -77,7 +100,7 @@ for (const pkg of targets) {
       r.pinNote = docs.pinNote;
       r.members = surface.unionMembers.map((name) => ({
         name,
-        ...(unionMemberEvidence(docs.sections, name, cfg.typeUnion.prop) ?? { tier: null, files: [] }),
+        ...(unionMemberEvidence(docs.sections, name, cfg.typeUnion) ?? { tier: null, files: [] }),
       }));
       r.missing = r.members.filter((m) => m.tier === null);
       r.thin = r.members.filter((m) => m.tier === 'bare');
@@ -112,14 +135,18 @@ if (jsonOnly) {
 // fail both halves (undocumented AND absent from the tools), and reporting that
 // as "2 products" misstates the blast radius.
 const failed = new Set();
+// Kept apart from `failed`: a product that could not be measured (an install
+// that failed, a stale root type) has no known coverage gap, but a gate that
+// cannot measure must not pass either.
+const unmeasured = new Set();
 for (const r of results) {
   if (!r.applicable) {
     console.log(`\n▸ ${r.skill}: no enumerated type union (nothing for this gate to check)`);
     continue;
   }
   if (r.error) {
-    failed.add(r.skill);
-    console.error(`\n▸ ${r.skill}: ⚠ ${r.error}`);
+    unmeasured.add(r.skill);
+    console.error(`\n▸ ${r.skill}: ⚠ could not measure: ${r.error}`);
     continue;
   }
   const at = r.version === r.pinned ? `pinned ${r.version}` : `${r.version} (pin is ${r.pinned})`;
@@ -168,6 +195,9 @@ if (failed.size) {
     `FAIL: ${failed.size} product(s) ship a type that either the skill docs or this repo's own ` +
       `tools do not cover.`,
   );
-  process.exit(1);
 }
+if (unmeasured.size) {
+  console.error(`FAIL: could not measure ${unmeasured.size} product(s): ${[...unmeasured].join(', ')}.`);
+}
+if (failed.size || unmeasured.size) process.exit(1);
 console.log('All enumerated types are documented and supported.');

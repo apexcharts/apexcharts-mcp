@@ -8,7 +8,7 @@
     "url": "https://github.com/apexcharts/apexcharts-mcp",
     "source": "github"
   },
-  "version": "0.9.5",
+  "version": "0.10.0",
   "icons": [
     { "src": "https://apexcharts.com/favicon.svg", "mimeType": "image/svg+xml", "sizes": ["any"] },
     { "src": "https://apexcharts.com/apple-touch-icon.png", "mimeType": "image/png", "sizes": ["180x180"] }
@@ -23,7 +23,7 @@
     {
       "registryType": "npm",
       "identifier": "apexcharts-mcp",
-      "version": "0.9.5",
+      "version": "0.10.0",
       "transport": {
         "type": "stdio"
       }

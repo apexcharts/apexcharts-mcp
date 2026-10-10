@@ -24,7 +24,7 @@ export function registerMetaTools(server: McpServer, modules: readonly ProductMo
         'registers. Use this once at the start of a session to decide which product ' +
         "matches the user's task; then call that product's tools directly. " +
         'Each product also reports `compatibility`: the bundled skill version and the ' +
-        'upstream library version its guidance was verified against — use it to tell ' +
+        'upstream library version its guidance was verified against; use it to tell ' +
         'the user which library version this server targets. ' +
         'Results respect the APEXCHARTS_MCP_PRODUCTS env-var gating.',
       inputSchema: {},

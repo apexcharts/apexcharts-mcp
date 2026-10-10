@@ -64,6 +64,11 @@ jobs:
       - run: npm install -g npm@11
       - run: npm install
 
+      # Includes each product's skill.test.ts (every indexed reference resolves,
+      # every shipped doc is indexed) and the package.json/server.json version
+      # check, so a skill bump that renames or adds a reference fails here.
+      - run: npm test
+
       # The knowledge base ships inside this artifact, so a chart type the
       # library has that the bundled skill never mentions, or that this repo's
       # own tools reject, is a defect in what we are about to publish rather

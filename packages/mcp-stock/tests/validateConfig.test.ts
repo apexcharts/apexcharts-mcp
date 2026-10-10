@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
+import { ANALYSIS_KEYS, OSCILLATOR_KEYS, OVERLAY_KEYS } from '../src/indicators.js';
+import { readKnownFile } from '../src/skill.js';
 import { validateStockConfig } from '../src/validateConfig.js';
+
+/** The `"key"` cells of each table in the bundled skill's indicators.md, by section heading. */
+async function documentedIndicatorKeys(): Promise<Record<string, string[]>> {
+  const doc = await readKnownFile('indicators.md');
+  const tables: Record<string, string[]> = {};
+  for (const section of doc.split(/^## /m).slice(1)) {
+    const keys = [...section.matchAll(/^\|\s*`"([^"]+)"`\s*\|/gm)].map((m) => m[1]);
+    if (keys.length) tables[section.slice(0, section.indexOf('\n'))] = keys;
+  }
+  return tables;
+}
 
 const candle = (x: string, y: [number, number, number, number], v = 100) => ({ x, y, v });
 const okConfig = {
@@ -143,6 +156,26 @@ describe('validateStockConfig — indicators', () => {
       expect(result.ok).toBe(true);
       expect(result.warnings).toEqual([]);
     }
+  });
+
+  // The validator's key list once lacked vwap, donchian channels, keltner
+  // channels, atr and drawdown, so it warned on indicators the bundled skill
+  // documents and an agent could drop a valid one to silence the warning.
+  it('accepts every indicator key the bundled skill documents', async () => {
+    const keys = Object.values(await documentedIndicatorKeys()).flat();
+    expect(keys.length).toBeGreaterThan(0);
+    const result = validateStockConfig({ ...okConfig, plotOptions: { stockChart: { indicators: keys } } });
+    expect(result.ok).toBe(true);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('sorts overlays, oscillators and analysis panes the way the bundled skill does', async () => {
+    const tables = await documentedIndicatorKeys();
+    const table = (prefix: string) =>
+      (Object.entries(tables).find(([heading]) => heading.startsWith(prefix))?.[1] ?? []).slice().sort();
+    expect(table('Overlays')).toEqual([...OVERLAY_KEYS].sort());
+    expect(table('Oscillators')).toEqual([...OSCILLATOR_KEYS].sort());
+    expect(table('Analysis')).toEqual([...ANALYSIS_KEYS].sort());
   });
 
   it('flags a wrong indicators shape', () => {

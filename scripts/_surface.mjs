@@ -440,13 +440,93 @@ function keyRe(name) {
   return new RegExp(`\\b${escapeRe(name)}\\s*\\??:`);
 }
 
-/** Evidence tiers for a member of a chart-type / series-type union. */
-export function unionMemberEvidence(sections, name, prop = 'type') {
+/** Fenced code blocks, then inline code spans, of a markdown body. */
+function codeRegions(body) {
+  const prose = body.replace(/```[a-zA-Z]*\n[\s\S]*?```/g, '');
+  return [...fences(body), ...[...prose.matchAll(/`([^`\n]+)`/g)].map((m) => m[1])];
+}
+
+/**
+ * The object's own text for every `<key>: { ... }` literal in a code region:
+ * its direct keys and values, with nested objects and arrays dropped. A `type:`
+ * found in it is `<key>.type` and nothing deeper.
+ *
+ * Brace depth is tracked from the key rather than matched with `[^}]*`, so a
+ * nested object written before `type` (`chart: { toolbar: { show: false },
+ * type: 'icicle' }`) does not end the block early. A quoted string is copied
+ * whole so a brace inside it cannot unbalance the count; a quote with no
+ * partner on its line (an apostrophe in a comment) is an ordinary character.
+ * A block cut short by `...` is read to the end of its region.
+ */
+function ownKeysOf(code, key) {
+  const out = [];
+  const open = new RegExp(`(?<![\\w$.])["']?${escapeRe(key)}["']?\\s*:\\s*\\{`, 'g');
+  for (const m of code.matchAll(open)) {
+    let depth = 1;
+    let own = '';
+    for (let i = m.index + m[0].length; i < code.length && depth > 0; i++) {
+      const c = code[i];
+      if (c === '"' || c === "'" || c === '`') {
+        const end = code.indexOf(c, i + 1);
+        const eol = code.indexOf('\n', i);
+        if (end !== -1 && (eol === -1 || end < eol)) {
+          if (depth === 1) own += code.slice(i, end + 1);
+          i = end;
+          continue;
+        }
+      }
+      if (c === '{' || c === '[') depth++;
+      else if (c === '}' || c === ']') depth--;
+      else if (depth === 1) own += c;
+    }
+    out.push(own);
+  }
+  return out;
+}
+
+/**
+ * Evidence tiers for a member of a chart-type / series-type union.
+ *
+ * Pass the product's `typeUnion` config (or just its prop name). When its
+ * `docPath` names one object's property (`chart.type`), `declared` requires
+ * the usage to be a direct key of that object, or the path written out
+ * (`chart.type: 'icicle'`). The bare `type: 'column'` is not enough there,
+ * because a mixed chart's series set their own type the same way: a match in a
+ * series array once graded `column` declared while no doc taught
+ * `chart: { type: 'column' }`. It now falls through to `quoted`. A wrapper
+ * component's prop (`<Chart type="sunburst" />`, Vue's `:type="'sunburst'"`)
+ * also counts: it sets the chart type, and a series object never writes `type=`.
+ * A docPath through an array (`series[].type`, `columns[].type`) is the plain
+ * key, so those products keep the unanchored test.
+ */
+export function unionMemberEvidence(sections, name, union = 'type') {
+  const { prop, docPath } = typeof union === 'string' ? { prop: union } : union;
   const n = escapeRe(name);
   const p = escapeRe(prop);
+  const owner = /^\w+\.\w+$/.test(docPath ?? '') ? docPath.split('.')[0] : null;
+  const declared = owner
+    ? {
+        tier: 'declared',
+        test: (body) => {
+          const ownUsage = new RegExp(`(?<![\\w$.])["'\`]?${p}["'\`]?\\s*:\\s*["'\`]${n}["'\`]`);
+          const fullPath = new RegExp(`\\b${escapeRe(docPath)}\\s*[:=]\\s*["'\`]${n}["'\`]`);
+          // No spaces around `=`: that is how an attribute is written, and it
+          // keeps a JS `const type = 'column'` out. A `:` or `-` in front makes
+          // it a binding or another attribute (`:type="sunburst"` names a
+          // variable; `data-type=`), so only Vue's quoted literal is taken.
+          const attribute = new RegExp(`(?<![\\w$.:-])(?:${p}=["']${n}["']|(?:v-bind)?:${p}="'${n}'")`);
+          return (
+            fullPath.test(body) ||
+            codeRegions(body).some(
+              (code) => attribute.test(code) || ownKeysOf(code, owner).some((own) => ownUsage.test(own)),
+            )
+          );
+        },
+      }
+    : // `type: 'icicle'`, `type="icicle"`, `"type": "icicle"`, a real usage.
+      { tier: 'declared', re: new RegExp(`["'\`]?${p}["'\`]?\\s*[:=]\\s*["'\`]${n}["'\`]`) };
   return evidence(sections, [
-    // `type: 'icicle'`, `type="icicle"`, `"type": "icicle"`, a real usage.
-    { tier: 'declared', re: new RegExp(`["'\`]?${p}["'\`]?\\s*[:=]\\s*["'\`]${n}["'\`]`) },
+    declared,
     { tier: 'quoted', re: new RegExp(`["'\`]${n}["'\`]`) },
     { tier: 'bare', re: new RegExp(`\\b${n}\\b`) },
   ]);

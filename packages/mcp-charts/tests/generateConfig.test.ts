@@ -190,4 +190,29 @@ describe('generateChartConfig', () => {
       expect(result.errors, `${type} should generate an error-free config`).toEqual([]);
     }
   });
+
+  it('emits nothing apexcharts 7.9+ warns about (unknown top-level keys, unreadable axis bounds)', () => {
+    for (const type of SUPPORTED_CHART_TYPES) {
+      const config = generateChartConfig({ type, title: 'T', stacked: true, horizontal: true });
+      const warned = validateChartConfig(config)
+        .warnings.filter((w) => w.rule === 'unknown-option-key' || w.rule === 'unparseable-axis-bound');
+      expect(warned, type).toEqual([]);
+    }
+  });
+
+  it('builds a column chart as asked, shaped like bar (v7.9)', () => {
+    const config = generateChartConfig({ type: 'column' });
+    expect((config.chart as { type: string }).type).toBe('column');
+    const series = config.series as Array<{ data: number[] }>;
+    expect(series[0].data.every((n) => typeof n === 'number')).toBe(true);
+    expect((config.xaxis as { categories: string[] }).categories.length).toBe(series[0].data.length);
+    expect(validateChartConfig(config).issues).toEqual([]);
+  });
+
+  it('stacks a column chart and never turns it horizontal', () => {
+    const config = generateChartConfig({ type: 'column', stacked: true, horizontal: true });
+    expect((config.chart as { stacked?: boolean }).stacked).toBe(true);
+    expect(config.plotOptions).toBeUndefined();
+    expect(validateChartConfig(config).issues).toEqual([]);
+  });
 });

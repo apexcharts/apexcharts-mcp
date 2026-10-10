@@ -16,9 +16,10 @@ export function registerStockTools(server: McpServer): void {
       description:
         'Build a minimal valid ApexStock options object for a financial / stock ' +
         'chart. Generates a placeholder OHLCV candle series when `data` is omitted, ' +
-        'so the result renders as-is. Note: at runtime ApexStock also requires ' +
-        '`window.ApexCharts` to be set (it does not import ApexCharts) — that is a ' +
-        'host-page concern, not part of this options object.',
+        'so the result renders as-is. Note: ApexStock does not bundle ApexCharts. ' +
+        'The host provides the constructor per instance (`new ApexStock(el, options, { ApexCharts })`), ' +
+        'once app-wide (`ApexStock.setApexCharts(ApexCharts)`), or as the `window.ApexCharts` global. ' +
+        'That is a host-page concern, not part of this options object.',
       inputSchema: {
         data: z
           .array(z.unknown())

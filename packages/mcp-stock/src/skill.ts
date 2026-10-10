@@ -10,7 +10,7 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
   {
     file: 'SKILL.md',
     description:
-      'Top-level ApexStock skill index: the ApexCharts-global requirement, OHLC data format, overlays-vs-oscillators, the render/update/appendData/destroy lifecycle, and framework integration. Read this first.',
+      'Top-level ApexStock skill index: the apexcharts peer range (^7.1.0 || ^8.0.0 since 0.5.2), providing the ApexCharts constructor (per-instance injection, ApexStock.setApexCharts, or the window global), OHLC data format, overlays-vs-oscillators, the render/update/appendData/destroy lifecycle, and framework integration. Read this first.',
   },
   {
     file: 'analysis.md',
@@ -20,7 +20,7 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
   {
     file: 'data-format.md',
     description:
-      'OHLC point shape ({ x, y: [o,h,l,c], v? }), chart types (candlestick / ohlc / line / area / heikinashi), timestamp handling, normalization behavior, and the apexcharts ^7.1.0 peer requirement.',
+      'OHLC point shape ({ x, y: [o,h,l,c], v? }), the data adapters (normalize / fromArrays / fromCSV), chart types (candlestick / line / area / column / heikin-ashi / renko), timestamp handling, normalization behavior, and the apexcharts peer range (^7.1.0 || ^8.0.0 since apexstock 0.5.2).',
   },
   {
     file: 'indicators.md',
@@ -44,7 +44,8 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
   },
   {
     file: 'framework-wrappers.md',
-    description: 'React, Vue 3, and Angular integration — props, refs, the ApexCharts-global rule, and cleanup.',
+    description:
+      'React, Vue 3, and Angular integration: props incl. the apexCharts injection prop, refs, wrapper versions and peer ranges, and cleanup.',
   },
   {
     file: 'theming.md',

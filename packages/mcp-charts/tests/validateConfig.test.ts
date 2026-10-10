@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { CHART_CATALOG, getChartInfo } from '../src/chartCatalog.js';
+import { generateChartConfig } from '../src/generateConfig.js';
 import { validateChartConfig } from '../src/validateConfig.js';
 
 function rules(result: ReturnType<typeof validateChartConfig>): string[] {
@@ -23,9 +25,39 @@ describe('validateChartConfig — structural', () => {
     expect(rules(r)).toContain('missing-chart-type');
   });
 
+  it('warns, not errors, on a missing, null or empty chart.type: the library draws a line chart (v7.9)', () => {
+    for (const type of [undefined, null, '']) {
+      const r = validateChartConfig({ chart: { type }, series: [{ name: 'A', data: [1, 2] }] });
+      expect(rules(r), `type ${JSON.stringify(type)}`).toEqual(['missing-chart-type']);
+      expect(r.warnings.map((w) => w.rule)).toEqual(['missing-chart-type']);
+      expect(r.ok).toBe(true);
+    }
+  });
+
+  it('keeps validating a typeless config as a line chart', () => {
+    const r = validateChartConfig({ chart: {}, series: [1, 2, 3] });
+    expect(rules(r)).toEqual(['missing-chart-type', 'wrong-series-format-axis']);
+  });
+
+  it('errors on a chart.type that is set but not a string (the library throws)', () => {
+    const r = validateChartConfig({ chart: { type: 123 }, series: [{ name: 'A', data: [1] }] });
+    expect(r.ok).toBe(false);
+    expect(r.errors.map((e) => e.rule)).toEqual(['missing-chart-type']);
+    expect(r.errors[0].message).toContain('must be a string');
+  });
+
   it('flags unknown chart.type', () => {
     const r = validateChartConfig({ chart: { type: 'sankey' }, series: [] });
     expect(rules(r)).toContain('unknown-chart-type');
+  });
+
+  it('names the nearest type for an unknown chart.type, like the library (v7.9)', () => {
+    const fixOf = (type: string) => validateChartConfig({ chart: { type }, series: [] }).issues[0].fix ?? '';
+    expect(fixOf('Bar')).toMatch(/^Did you mean "bar"\?/);
+    expect(fixOf('colum')).toMatch(/^Did you mean "column"\?/);
+    expect(fixOf('pie ')).toMatch(/^Did you mean "pie"\?/);
+    expect(fixOf('sankey')).not.toContain('Did you mean');
+    expect(fixOf('sankey')).toContain('registerSeriesType');
   });
 
   it('flags missing series', () => {
@@ -324,6 +356,26 @@ describe('validateChartConfig — other rules', () => {
     expect(rules(r)).not.toContain('stacked-on-unsupported-type');
   });
 
+  it('accepts chart.type column, a synonym the library rewrites to bar (v7.9)', () => {
+    const r = validateChartConfig({
+      chart: { type: 'column' },
+      series: [{ name: 'A', data: [10, 20, 30] }],
+      xaxis: { categories: ['Q1', 'Q2', 'Q3'] },
+    });
+    expect(r.issues).toEqual([]);
+  });
+
+  it('allows chart.stacked on column, as on bar', () => {
+    const r = validateChartConfig({
+      chart: { type: 'column', stacked: true },
+      series: [
+        { name: 'A', data: [10, 20] },
+        { name: 'B', data: [5, 8] },
+      ],
+    });
+    expect(r.issues).toEqual([]);
+  });
+
   it('flags tooltip.shared and tooltip.intersect both true', () => {
     const r = validateChartConfig({
       chart: { type: 'line' },
@@ -403,6 +455,20 @@ describe('validateChartConfig: v7.1 chart types', () => {
     expect(r.ok).toBe(true);
   });
 
+  it("gives raincloud the v8.0 fix: its own entry, or violin.js before the feature's script", () => {
+    const r = validateChartConfig({
+      chart: { type: 'raincloud' },
+      series: [{ name: 'A', data: [{ x: 'Control', points: [1, 2, 3] }] }],
+    });
+    const tier2 = r.issues.find((i) => i.rule === 'tier2-chart-type');
+    expect(tier2?.message).toContain('render() rejects');
+    expect(tier2?.fix).toContain("`import 'apexcharts/raincloud'`");
+    expect(tier2?.fix).toContain('dist/violin.js and then dist/features/raincloud.js');
+    expect(tier2?.fix).toContain("'apexcharts/full'");
+    // The feature alone is no longer a route on the default bundle.
+    expect(tier2?.fix).toContain("'apexcharts/features/raincloud' alone works only where violin is already registered");
+  });
+
   it('warns that a waterfall row with neither a value nor a total flag renders as a gap', () => {
     const r = validateChartConfig({
       chart: { type: 'waterfall' },
@@ -417,7 +483,8 @@ describe('validateChartConfig: v7.1 chart types', () => {
       chart: { type: 'waterfall' },
       series: [{ name: 'W', data: [{ x: 'Q1', y: 100 }, { x: 'Q2', y: null }, { x: 'End', isTotal: true }] }],
     });
-    expect(r.issues).toEqual([]);
+    // Only the v8.0 import advisory, which every waterfall carries.
+    expect(rules(r)).toEqual(['tier2-chart-type']);
   });
 
   it('warns when a waterfall running-total row also carries a value', () => {
@@ -451,7 +518,7 @@ describe('validateChartConfig: v7.1 chart types', () => {
       chart: { type: 'dumbbell' },
       series: [{ name: 'Gap', data: [{ x: 'Backend', y: [92, 118] }] }],
     });
-    expect(r.issues).toEqual([]);
+    expect(rules(r)).toEqual(['tier2-chart-type']);
   });
 
   it('warns when a dumbbell has only one series', () => {
@@ -471,7 +538,7 @@ describe('validateChartConfig: v7.1 chart types', () => {
         { name: '2025', data: [{ x: 'Backend', y: 118 }] },
       ],
     });
-    expect(r.issues).toEqual([]);
+    expect(rules(r)).toEqual(['tier2-chart-type']);
   });
 
   it('warns about chart.stacked on a streamgraph instead of erroring', () => {
@@ -500,8 +567,197 @@ describe('validateChartConfig: v7.1 chart types', () => {
       chart: { type: 'waterfall', stacked: true },
       series: [{ name: 'W', data: [{ x: 'Revenue', y: 10 }] }],
     });
-    expect(rules(r)).toEqual(['stacked-ignored']);
+    expect(rules(r)).toEqual(['stacked-ignored', 'tier2-chart-type']);
     expect(r.ok).toBe(true);
+  });
+});
+
+describe('validateChartConfig: Tier 2 chart types (apexcharts 8.0)', () => {
+  // One minimal, well-formed config per Tier 2 type.
+  const configs: Record<string, Record<string, unknown>> = {
+    unit: { chart: { type: 'unit' }, series: [4, 3], labels: ['A', 'B'] },
+    waffle: { chart: { type: 'waffle' }, series: [4, 3], labels: ['A', 'B'] },
+    sunburst: { chart: { type: 'sunburst' }, series: [{ data: [{ x: 'A', y: 1 }] }] },
+    icicle: { chart: { type: 'icicle' }, series: [{ data: [{ x: 'A', y: 1 }] }] },
+    violin: { chart: { type: 'violin' }, series: [{ name: 'S', data: [{ x: 'A', points: [1, 2, 3] }] }] },
+    raincloud: { chart: { type: 'raincloud' }, series: [{ name: 'S', data: [{ x: 'A', points: [1, 2, 3] }] }] },
+    waterfall: { chart: { type: 'waterfall' }, series: [{ name: 'W', data: [{ x: 'A', y: 1 }] }] },
+    dumbbell: {
+      chart: { type: 'dumbbell' },
+      series: [
+        { name: 'A', data: [{ x: 'X', y: 1 }] },
+        { name: 'B', data: [{ x: 'X', y: 2 }] },
+      ],
+    },
+    streamgraph: { chart: { type: 'streamgraph' }, series: [{ name: 'S', data: [{ x: 'A', y: 1 }] }] },
+  };
+
+  it('covers exactly the catalog\'s Tier 2 types', () => {
+    expect(Object.keys(configs).sort()).toEqual(
+      CHART_CATALOG.filter((c) => c.bundle).map((c) => c.type).sort(),
+    );
+  });
+
+  for (const [type, config] of Object.entries(configs)) {
+    it(`warns that ${type} needs its import, naming it, its script tags and the full bundle`, () => {
+      const b = getChartInfo(type)!.bundle!;
+      const r = validateChartConfig(config);
+      const tier2 = r.issues.filter((i) => i.rule === 'tier2-chart-type');
+      expect(tier2).toHaveLength(1);
+      expect(tier2[0].severity).toBe('warning');
+      expect(tier2[0].path).toBe('chart.type');
+      expect(tier2[0].message).toContain(
+        b.failure === 'throws' ? 'render() rejects' : 'the chart draws nothing',
+      );
+      expect(tier2[0].fix).toContain(`\`import '${b.import}'\``);
+      for (const script of b.scripts) expect(tier2[0].fix).toContain(script);
+      expect(tier2[0].fix).toContain("`import ApexCharts from 'apexcharts/full'`");
+      expect(r.errors).toEqual([]);
+    });
+  }
+
+  it('recommends only the feature for waterfall, dumbbell and streamgraph on the default bundle', () => {
+    for (const type of ['waterfall', 'dumbbell', 'streamgraph']) {
+      const fix = validateChartConfig(configs[type]).issues.find((i) => i.rule === 'tier2-chart-type')?.fix;
+      expect(fix).toContain(`\`import 'apexcharts/features/${type}'\``);
+    }
+  });
+
+  it('warns for a violin series in a combo whose own type is in the default bundle', () => {
+    const r = validateChartConfig({
+      chart: { type: 'boxPlot' },
+      series: [
+        { name: 'Box', type: 'boxPlot', data: [{ x: 'A', y: [1, 2, 3, 4, 5] }] },
+        { name: 'Violin', type: 'violin', data: [{ x: 'A', points: [1, 2, 3] }] },
+      ],
+    });
+    const tier2 = r.issues.filter((i) => i.rule === 'tier2-chart-type');
+    expect(tier2).toHaveLength(1);
+    expect(tier2[0].path).toBe('series[1].type');
+    expect(tier2[0].fix).toContain("`import 'apexcharts/violin'`");
+  });
+
+  it('warns once when a violin chart also names violin on a series', () => {
+    const r = validateChartConfig({
+      chart: { type: 'violin' },
+      series: [{ name: 'V', type: 'violin', data: [{ x: 'A', points: [1, 2, 3] }] }],
+    });
+    expect(rules(r).filter((id) => id === 'tier2-chart-type')).toHaveLength(1);
+  });
+
+  it('never warns for a type the default bundle has', () => {
+    for (const c of CHART_CATALOG.filter((info) => !info.bundle)) {
+      const r = validateChartConfig(generateChartConfig({ type: c.type }));
+      expect(rules(r), c.type).not.toContain('tier2-chart-type');
+    }
+  });
+});
+
+describe('validateChartConfig: features that need an import', () => {
+  const base = { chart: { type: 'bar' }, series: [{ name: 'A', data: [1, 2] }] };
+
+  it('warns that drilldown is not in the default bundle since 8.0', () => {
+    const r = validateChartConfig({ ...base, drilldown: { enabled: true, series: [] } });
+    expect(rules(r)).toEqual(['feature-needs-import']);
+    expect(r.issues[0].path).toBe('drilldown.enabled');
+    expect(r.issues[0].fix).toContain("`import 'apexcharts/features/drilldown'`");
+    expect(r.issues[0].fix).toContain('dist/features/drilldown.js');
+    expect(r.ok).toBe(true);
+  });
+
+  it('stays quiet for a drilldown block that is not enabled (the default)', () => {
+    const r = validateChartConfig({ ...base, drilldown: { series: [] } });
+    expect(r.issues).toEqual([]);
+  });
+
+  it('warns about highlight parts wherever the library looks for them (v7.9)', () => {
+    const at = (config: Record<string, unknown>) =>
+      validateChartConfig(config).issues.filter((i) => i.rule === 'feature-needs-import').map((i) => i.path);
+    expect(at({ ...base, highlightFilter: { data: [[1, 1]] } })).toEqual(['highlightFilter.data']);
+    expect(at({ ...base, series: [{ name: 'A', data: [1, 2], highlightData: [0.5, 1] }] })).toEqual([
+      'series[0].highlightData',
+    ]);
+    expect(at({ ...base, series: [{ name: 'A', data: [{ x: 'a', y: 2, highlight: 1 }] }] })).toEqual([
+      'series[0].data[0].highlight',
+    ]);
+    // The library reads only a series' first point, so a part further in is not "in use".
+    expect(at({ ...base, series: [{ name: 'A', data: [{ x: 'a', y: 2 }, { x: 'b', y: 3, highlight: 1 }] }] })).toEqual(
+      [],
+    );
+  });
+
+  it('says highlight-filter is premium and names its import', () => {
+    const r = validateChartConfig({ ...base, highlightFilter: { data: [[1, 1]] } });
+    expect(r.issues[0].message).toContain('premium');
+    expect(r.issues[0].fix).toContain("`import 'apexcharts/features/highlight-filter'`");
+  });
+});
+
+describe('validateChartConfig: what 7.9 started warning about', () => {
+  const base = { chart: { type: 'line' }, series: [{ name: 'A', data: [1, 2] }] };
+
+  it('warns about a top-level key the library never reads, naming the nearest real one', () => {
+    const r = validateChartConfig({ ...base, xAxis: { categories: ['a', 'b'] }, zaxis: {}, myMeta: 1 });
+    const unknown = r.issues.filter((i) => i.rule === 'unknown-option-key');
+    expect(unknown.map((i) => i.path)).toEqual(['xAxis', 'zaxis', 'myMeta']);
+    expect(unknown[0].fix).toBe('Did you mean "xaxis"?');
+    // Ties go to the earlier name, as in Options.init()'s key order.
+    expect(unknown[1].fix).toBe('Did you mean "xaxis"?');
+    expect(unknown[2].fix).not.toContain('Did you mean');
+    expect(r.ok).toBe(true);
+  });
+
+  it('knows every top-level option apexcharts 8.0 reads', () => {
+    const r = validateChartConfig({
+      ...base,
+      annotations: {}, plugins: [], trellis: {}, parsing: undefined, plotOptions: {}, colors: [],
+      dataLabels: {}, fill: {}, forecastDataPoints: {}, highlightFilter: {}, grid: {}, labels: [],
+      drilldown: {}, legend: {}, markers: {}, noData: {}, responsive: [], states: {}, title: {},
+      subtitle: {}, stroke: {}, tooltip: {}, xaxis: {}, yaxis: {}, theme: {},
+    });
+    expect(rules(r)).not.toContain('unknown-option-key');
+  });
+
+  it('warns about an axis bound that cannot be read as a number', () => {
+    const paths = (config: Record<string, unknown>) =>
+      validateChartConfig({ ...base, ...config })
+        .issues.filter((i) => i.rule === 'unparseable-axis-bound')
+        .map((i) => i.path);
+    expect(paths({ yaxis: { min: 'abc' } })).toEqual(['yaxis.min']);
+    expect(paths({ yaxis: [{ min: 0 }, { max: '90%' }] })).toEqual(['yaxis[1].max']);
+    expect(paths({ yaxis: { min: true, max: '' } })).toEqual(['yaxis.min', 'yaxis.max']);
+    expect(paths({ xaxis: { min: 'Feb' } })).toEqual(['xaxis.min']);
+    expect(paths({ yaxis: { min: NaN } })).toEqual(['yaxis.min']);
+  });
+
+  it('prints a non-finite bound as the number it is, not as null', () => {
+    const messages = (config: Record<string, unknown>) =>
+      validateChartConfig({ ...base, ...config })
+        .issues.filter((i) => i.rule === 'unparseable-axis-bound')
+        .map((i) => i.message);
+    const [nan] = messages({ yaxis: { min: NaN } });
+    expect(nan).toContain('yaxis.min is NaN');
+    expect(nan).not.toContain('null');
+    expect(messages({ yaxis: { max: Infinity } })[0]).toContain('yaxis.max is Infinity');
+  });
+
+  it('accepts the bounds the library converts or leaves alone', () => {
+    const paths = (config: Record<string, unknown>) =>
+      validateChartConfig({ ...base, ...config })
+        .issues.filter((i) => i.rule === 'unparseable-axis-bound')
+        .map((i) => i.path);
+    // Numeric strings convert since 7.9; null leaves the bound unset.
+    expect(paths({ yaxis: { min: '10', max: ' 90 ' } })).toEqual([]);
+    expect(paths({ yaxis: { min: null, max: 100 } })).toEqual([]);
+    // A datetime axis parses dates, which this check does not judge.
+    expect(paths({ xaxis: { type: 'datetime', min: '2024-01-01' } })).toEqual([]);
+  });
+
+  it('hints at xaxis.type datetime for an x bound, but not for a y bound', () => {
+    const r = validateChartConfig({ ...base, xaxis: { min: '2024-01-01' }, yaxis: { min: 'low' } });
+    const [x, y] = r.issues.filter((i) => i.rule === 'unparseable-axis-bound');
+    expect(x.fix).toContain('xaxis.type: "datetime"');
+    expect(y.fix).not.toContain('datetime');
   });
 });
 

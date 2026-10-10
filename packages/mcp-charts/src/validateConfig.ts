@@ -1,4 +1,12 @@
-import { CHART_CATALOG, getChartInfo, SUPPORTED_CHART_TYPES } from './chartCatalog.js';
+import {
+  bundleConsequence,
+  bundleRemedy,
+  bundleSince,
+  CHART_CATALOG,
+  getChartInfo,
+  SUPPORTED_CHART_TYPES,
+  type BundleRequirement,
+} from './chartCatalog.js';
 
 export type Severity = 'error' | 'warning';
 
@@ -56,25 +64,47 @@ export function validateChartConfig(config: unknown): ValidationResult {
     return finalize(issues);
   }
 
-  const type = chart.type;
-  if (typeof type !== 'string') {
+  // Since apexcharts 7.9, Config.init reads any falsy chart.type ('', null,
+  // undefined) as 'line' before anything else sees it, so the chart draws as
+  // a line chart. Only a set value that is not a string throws
+  // (Config.assertKnownChartType).
+  const rawType = chart.type;
+  let type: string;
+  if (!rawType) {
+    issues.push({
+      severity: 'warning',
+      rule: 'missing-chart-type',
+      path: 'chart.type',
+      message: 'chart.type is not set, so ApexCharts draws a line chart (apexcharts 7.9 and later).',
+      fix: 'Set chart.type explicitly, e.g. "line", "bar" or "pie".',
+    });
+    type = 'line';
+  } else if (typeof rawType !== 'string') {
     issues.push({
       severity: 'error',
       rule: 'missing-chart-type',
       path: 'chart.type',
-      message: 'chart.type is required (e.g. "line", "bar", "pie").',
+      message: `chart.type must be a string, got ${typeof rawType}. Creating the chart throws.`,
+      fix: 'Set chart.type to a type name, e.g. "line", "bar" or "pie".',
     });
     return finalize(issues);
+  } else {
+    type = rawType;
   }
 
   const info = getChartInfo(type);
   if (!info) {
+    // The library names the closest type in its own throw. Its candidates
+    // (BUILTIN_TYPES plus the TYPE_ALIASES keys) are the catalog's types at
+    // the pinned release, which tests/chartCatalog.test.ts checks.
+    const nearest = nearestName(type, SUPPORTED_CHART_TYPES);
     issues.push({
       severity: 'error',
       rule: 'unknown-chart-type',
       path: 'chart.type',
       message: `Unknown chart.type "${type}". Creating the chart throws unless the type was registered first.`,
       fix:
+        (nearest ? `Did you mean "${nearest}"? ` : '') +
         `Use one of: ${SUPPORTED_CHART_TYPES.join(', ')}. ` +
         'A custom type must be registered with ApexCharts.registerSeriesType(name, def) before the chart is created.',
     });
@@ -87,7 +117,10 @@ export function validateChartConfig(config: unknown): ValidationResult {
   checkTooltip(config, issues);
   checkColors(config, issues);
   checkPremiumType(type, issues);
-  checkTier2Type(type, issues);
+  checkTier2Type(type, config.series, issues);
+  checkFeatureImports(config, issues);
+  checkOptionKeys(config, issues);
+  checkAxisBounds(config, issues);
 
   return finalize(issues);
 }
@@ -544,14 +577,16 @@ function checkStacked(chart: AnyObj, type: string, issues: ValidationIssue[]): v
     return;
   }
   // Line, area and bar stack, including mixed charts whose series carry their
-  // own `type` (see chart.stackOnlyBar).
-  if (type !== 'bar' && type !== 'area' && type !== 'line') {
+  // own `type` (see chart.stackOnlyBar). `column` is rewritten to 'bar' before
+  // the stacked defaults are picked (Config.normalizeAliasedChartType), so it
+  // stacks exactly as bar does.
+  if (type !== 'bar' && type !== 'column' && type !== 'area' && type !== 'line') {
     issues.push({
       severity: 'error',
       rule: 'stacked-on-unsupported-type',
       path: 'chart.stacked',
-      message: `chart.stacked: true only works with type "bar", "area" or "line". Got "${type}".`,
-      fix: 'Remove chart.stacked, or change chart.type to "bar", "area" or "line".',
+      message: `chart.stacked: true only works with type "bar", "column", "area" or "line". Got "${type}".`,
+      fix: 'Remove chart.stacked, or change chart.type to "bar", "column", "area" or "line".',
     });
   }
 }
@@ -581,29 +616,256 @@ function checkDumbbellSeriesCount(
   });
 }
 
-function checkTier2Type(type: string, issues: ValidationIssue[]): void {
-  // Every chart type ships in the default v7 bundle except two opt-in ones.
-  // Raincloud is Tier 2: present in the package, absent from every bundle.
-  // Icicle has its own entry point, and an unregistered type throws.
-  if (type === 'raincloud') {
+function checkTier2Type(type: string, series: unknown, issues: ValidationIssue[]): void {
+  // Since apexcharts 8.0 the default bundle (`import ApexCharts from
+  // 'apexcharts'`) registers the standard types only; the catalog's `bundle`
+  // field names each Tier 2 type and what it needs. The validator cannot see
+  // the page's imports, so this is a warning, never an error.
+  const info = getChartInfo(type);
+  if (info?.bundle) {
+    issues.push(tier2Issue(`Chart type "${type}"`, info.bundle, 'chart.type'));
+  }
+  // violin is an XY type, so one series of a combo can be a violin while the
+  // chart's own type is in the default bundle. Its renderer is looked up all
+  // the same (Core._instantiateSeriesRenderers). A violin or raincloud chart's
+  // own import already brings it.
+  if (type === 'violin' || type === 'raincloud' || !Array.isArray(series)) return;
+  const violin = getChartInfo('violin')?.bundle;
+  const i = series.findIndex((s) => isObject(s) && s.type === 'violin');
+  if (violin && i !== -1) {
+    issues.push(tier2Issue('Series type "violin"', violin, `series[${i}].type`));
+  }
+}
+
+function tier2Issue(subject: string, b: BundleRequirement, path: string): ValidationIssue {
+  const what =
+    b.failure === 'throws'
+      ? `${subject} is not in the default ApexCharts bundle`
+      : `${subject} needs a feature that is not in the default ApexCharts bundle`;
+  return {
+    severity: 'warning',
+    rule: 'tier2-chart-type',
+    path,
+    message: `${what} (Tier 2 since ${bundleSince(b)}). Without its import, ${bundleConsequence(b)}.`,
+    fix: bundleRemedy(b) + (b.note ? ` ${b.note}` : ''),
+  };
+}
+
+/**
+ * Features a config switches on that the default bundle lacks. Each test is
+ * the library's own "asked for but not loaded" check at v8.0.0, applied to the
+ * config alone (global window.Apex options are out of sight). One rule id for
+ * both; `path` names the feature's option.
+ */
+function checkFeatureImports(config: AnyObj, issues: ValidationIssue[]): void {
+  // drilldown left the default bundle in 8.0. src/apexcharts.js warns when
+  // `w.config.drilldown?.enabled` is set and the feature is absent.
+  const drilldown = config.drilldown;
+  if (isObject(drilldown) && drilldown.enabled) {
     issues.push({
       severity: 'warning',
-      rule: 'tier2-chart-type',
-      path: 'chart.type',
+      rule: 'feature-needs-import',
+      path: 'drilldown.enabled',
       message:
-        'Chart type "raincloud" is not in the default ApexCharts bundle (Tier 2, v7.1). Without its module the chart warns in the console and does not render.',
-      fix: "Add `import 'apexcharts/raincloud'` (or `apexcharts/features/raincloud`) on top of the default bundle, or `dist/features/raincloud.js` after apexcharts.js from a script tag.",
-    });
-  } else if (type === 'icicle') {
-    issues.push({
-      severity: 'warning',
-      rule: 'tier2-chart-type',
-      path: 'chart.type',
-      message:
-        'Chart type "icicle" is not in the default ApexCharts bundle (opt-in, v7.6). Without its entry point, creating the chart throws.',
-      fix: "Use `import ApexCharts from 'apexcharts/icicle'`, or load `dist/icicle.js` after apexcharts.js from a script tag.",
+        'drilldown is not in the default ApexCharts bundle since v8.0. Without its feature the root level draws, a click on a drillable point does nothing, and one console warning names the import.',
+      fix: bundleRemedy({
+        import: 'apexcharts/features/drilldown',
+        scripts: ['dist/features/drilldown.js'],
+      }),
     });
   }
+
+  // highlight-filter (v7.9) has never been in the default bundle.
+  // Data.parseData warns when it is absent and the config carries parts.
+  const partsAt = highlightPartsPath(config);
+  if (partsAt) {
+    issues.push({
+      severity: 'warning',
+      rule: 'feature-needs-import',
+      path: partsAt,
+      message:
+        'Highlight parts (`highlightData`, a point\'s `highlight`, `highlightFilter.data`) need the highlight-filter feature (v7.9), which is not in the default ApexCharts bundle. ' +
+        'Without it the chart draws without them and one console warning names the import. It is a premium feature: drawn without a license key on a plan that includes it, the chart carries an "APEXCHARTS" watermark.',
+      fix: bundleRemedy({
+        import: 'apexcharts/features/highlight-filter',
+        scripts: ['dist/features/highlight-filter.js'],
+      }),
+    });
+  }
+}
+
+/**
+ * Where the config first carries highlight parts, or null. The same test as
+ * v8.0.0 Data.parseData: `highlightFilter.data`, a series' `highlightData`, or
+ * a `highlight` key on a series' first point (checked per series, never per
+ * point).
+ */
+function highlightPartsPath(config: AnyObj): string | null {
+  if (isObject(config.highlightFilter) && config.highlightFilter.data) return 'highlightFilter.data';
+  if (!Array.isArray(config.series)) return null;
+  for (let i = 0; i < config.series.length; i++) {
+    const s = config.series[i] as { highlightData?: unknown; data?: unknown } | null | undefined;
+    if (!s) continue;
+    if (s.highlightData) return `series[${i}].highlightData`;
+    const first = (s.data as unknown[] | null | undefined)?.[0];
+    if (first && typeof first === 'object' && 'highlight' in first) {
+      return `series[${i}].data[0].highlight`;
+    }
+  }
+  return null;
+}
+
+/**
+ * The top-level option names apexcharts reads: `Object.keys(new
+ * Options().init())` at v8.0.0 (src/modules/settings/Options.js), the list
+ * Config.warnUnknownOptionKeys checks against. Re-extract it at each re-pin.
+ */
+const KNOWN_OPTION_KEYS = [
+  'annotations',
+  'plugins',
+  'trellis',
+  'chart',
+  'parsing',
+  'plotOptions',
+  'colors',
+  'dataLabels',
+  'fill',
+  'forecastDataPoints',
+  'highlightFilter',
+  'grid',
+  'labels',
+  'drilldown',
+  'legend',
+  'markers',
+  'noData',
+  'responsive',
+  'series',
+  'states',
+  'title',
+  'subtitle',
+  'stroke',
+  'tooltip',
+  'xaxis',
+  'yaxis',
+  'theme',
+];
+
+function checkOptionKeys(config: AnyObj, issues: ValidationIssue[]): void {
+  // Config.warnUnknownOptionKeys (v7.9): a key the library never reads is
+  // merged into the config and ignored, with one console warning.
+  for (const key of Object.keys(config)) {
+    if (KNOWN_OPTION_KEYS.includes(key)) continue;
+    const nearest = nearestName(key, KNOWN_OPTION_KEYS);
+    issues.push({
+      severity: 'warning',
+      rule: 'unknown-option-key',
+      path: key,
+      message: `ApexCharts reads no top-level option "${key}", so it is kept in the config and ignored.`,
+      fix: nearest
+        ? `Did you mean "${nearest}"?`
+        : 'Remove it, or move it under the option group that reads it.',
+    });
+  }
+}
+
+function checkAxisBounds(config: AnyObj, issues: ValidationIssue[]): void {
+  // Config.normalizeAxisBounds (v7.9): a bound that does not convert to a
+  // number is ignored with a console warning, and the axis scales to the data.
+  const push = (path: string, value: unknown, onX: boolean): void => {
+    // String() for numbers: JSON.stringify prints NaN and Infinity as null,
+    // which is the one value this check accepts as unset.
+    const shown =
+      typeof value === 'string'
+        ? `"${value}"`
+        : typeof value === 'number'
+          ? String(value)
+          : (JSON.stringify(value) ?? String(value));
+    issues.push({
+      severity: 'warning',
+      rule: 'unparseable-axis-bound',
+      path,
+      message: `${path} is ${shown}, which cannot be read as a number, so ApexCharts ignores the bound and the axis scales to the data.`,
+      fix:
+        'Use a number, or a numeric string such as "10".' +
+        (onX ? ' For a date, set xaxis.type: "datetime".' : ''),
+    });
+  };
+
+  const xaxis = config.xaxis;
+  if (isObject(xaxis)) {
+    // The axis type comes from the config alone: no type default sets
+    // 'datetime', and the default is 'category'.
+    const isDatetime = xaxis.type === 'datetime';
+    for (const bound of ['min', 'max']) {
+      if (xaxis[bound] === undefined) continue;
+      if (!axisBoundReads(xaxis[bound], isDatetime)) push(`xaxis.${bound}`, xaxis[bound], true);
+    }
+  }
+
+  const yaxis = config.yaxis;
+  const yaxes: unknown[] = Array.isArray(yaxis) ? yaxis : yaxis ? [yaxis] : [];
+  yaxes.forEach((y, i) => {
+    if (!isObject(y)) return;
+    for (const bound of ['min', 'max']) {
+      // A y bound may be a function, which the range code calls with the extent.
+      if (y[bound] === undefined || typeof y[bound] === 'function') continue;
+      if (!axisBoundReads(y[bound], false)) {
+        push(Array.isArray(yaxis) ? `yaxis[${i}].${bound}` : `yaxis.${bound}`, y[bound], false);
+      }
+    }
+  });
+}
+
+/** Whether v8.0.0 Config._coerceAxisBound turns a bound into a number. */
+function axisBoundReads(value: unknown, isDatetime: boolean): boolean {
+  if (value === null) return true; // leaves the bound unset, no warning
+  if (typeof value === 'number') return Number.isFinite(value);
+  // A datetime axis parses through Date.parse, whose answer for anything but
+  // ISO 8601 differs between engines, so it is not judged here.
+  if (isDatetime) return true;
+  if (typeof value === 'string' && value.trim() !== '') return Number.isFinite(Number(value));
+  return false;
+}
+
+/**
+ * Utils.editDistance at apexcharts v8.0.0: single-character insertions,
+ * deletions and substitutions, capped at `max` (returns max + 1 beyond it).
+ */
+function editDistance(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++) {
+      row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (row[j] < best) best = row[j];
+    }
+    if (best > max) return max + 1;
+    prev = row;
+  }
+  return prev[b.length];
+}
+
+/**
+ * Utils.nearestName at apexcharts v8.0.0: the closest candidate ignoring case
+ * and surrounding whitespace, within 1 edit for a name of up to 4 characters
+ * and 2 above, or '' when nothing is that close. Ties go to the earlier
+ * candidate.
+ */
+function nearestName(name: string, candidates: string[]): string {
+  const needle = String(name).trim().toLowerCase();
+  const max = needle.length > 4 ? 2 : 1;
+  let best = '';
+  let bestDist = max + 1;
+  for (const candidate of candidates) {
+    const d = editDistance(needle, candidate.toLowerCase(), max);
+    if (d < bestDist) {
+      bestDist = d;
+      best = candidate;
+    }
+  }
+  return bestDist <= max ? best : '';
 }
 
 function checkPremiumType(type: string, issues: ValidationIssue[]): void {

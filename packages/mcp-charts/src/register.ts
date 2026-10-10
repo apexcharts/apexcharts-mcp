@@ -3,7 +3,13 @@ import { z } from 'zod';
 
 import { READ_ONLY_TOOL } from '@apexcharts-mcp/core';
 
-import { CHART_CATALOG, SUPPORTED_CHART_TYPES, type ChartFamily } from './chartCatalog.js';
+import {
+  CHART_CATALOG,
+  describeChartType,
+  SUPPORTED_CHART_TYPES,
+  TIER2_CHART_TYPES,
+  type ChartFamily,
+} from './chartCatalog.js';
 import { generateChartConfig } from './generateConfig.js';
 import { isKnownReference, readKnownFile, REFERENCE_INDEX } from './skill.js';
 import { validateChartConfig } from './validateConfig.js';
@@ -27,7 +33,10 @@ export function registerChartsTools(server: McpServer): void {
       description:
         'Build a minimal valid ApexCharts options object for a given chart type. ' +
         'Picks the correct series data format (axis vs non-axis) and supplies ' +
-        'placeholder data when none is given. Use this as the starting point for a chart.',
+        'placeholder data when none is given. Use this as the starting point for a chart. ' +
+        `Since apexcharts 8.0 the Tier 2 types (${TIER2_CHART_TYPES.join(', ')}) are outside the default bundle: ` +
+        "the page also needs that type's add-on import next to 'apexcharts', or " +
+        "`import ApexCharts from 'apexcharts/full'`; apexcharts_list_types names the import per type.",
       inputSchema: {
         type: z
           .enum(SUPPORTED_CHART_TYPES as [string, ...string[]])
@@ -50,11 +59,13 @@ export function registerChartsTools(server: McpServer): void {
         stacked: z
           .boolean()
           .optional()
-          .describe('Stack series. Honored only for bar, area and line chart types.'),
+          .describe('Stack series. Honored only for bar, column, area and line chart types.'),
         horizontal: z
           .boolean()
           .optional()
-          .describe('Render bars horizontally. Honored only for bar chart type.'),
+          .describe(
+            'Render bars horizontally. Honored only for bar and dumbbell (column is vertical by definition).',
+          ),
       },
     },
     async (input) => {
@@ -96,7 +107,9 @@ export function registerChartsTools(server: McpServer): void {
       description:
         'Return every ApexCharts chart type this server supports, with name, description, ' +
         'family (cartesian/bar/financial/circular/grid/radar/unit), series format (axis vs non-axis), ' +
-        'expected data shape, and the reference doc filename for deeper detail. ' +
+        'expected data shape, the reference doc filename for deeper detail, and `bundle`: ' +
+        '{ tier: 1 } for a type the default bundle has, or for a Tier 2 type ' +
+        '{ tier: 2, import, scripts, since, failure, note? } naming the add-on it needs. ' +
         'Optionally filter by family.',
       inputSchema: {
         family: z
@@ -112,11 +125,12 @@ export function registerChartsTools(server: McpServer): void {
         types: types.map((c) => ({
           type: c.type,
           name: c.name,
-          description: c.description,
+          description: describeChartType(c),
           family: c.family,
           seriesFormat: c.seriesFormat,
           dataFormat: c.dataFormat,
           referenceFile: c.referenceFile,
+          bundle: c.bundle ?? { tier: 1 },
         })),
       };
       return {

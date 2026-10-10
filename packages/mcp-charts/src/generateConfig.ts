@@ -16,9 +16,9 @@ export interface GenerateChartConfigInput {
   title?: string;
   /** Optional explicit height in px (default 350). */
   height?: number;
-  /** Stack bars/area (only honored for bar and area types). */
+  /** Stack series (only honored for bar, column, area and line types). */
   stacked?: boolean;
-  /** Render bar chart horizontally (only honored for bar type). */
+  /** Render bars horizontally (only honored for bar and dumbbell; column is vertical). */
   horizontal?: boolean;
 }
 
@@ -38,9 +38,15 @@ export function generateChartConfig(input: GenerateChartConfigInput): Record<str
   }
 
   const height = input.height ?? 350;
+  // `column` is emitted as asked: since apexcharts 7.9 it is a plain synonym
+  // the library rewrites to 'bar', so it takes every bar option below except
+  // `horizontal`, which would contradict the name.
   const chart: Record<string, unknown> = { type: info.type, height };
 
-  if (input.stacked && (info.type === 'bar' || info.type === 'area' || info.type === 'line')) {
+  if (
+    input.stacked &&
+    (info.type === 'bar' || info.type === 'column' || info.type === 'area' || info.type === 'line')
+  ) {
     chart.stacked = true;
   }
 
@@ -79,11 +85,12 @@ function needsCategoriesByDefault(type: string): boolean {
   // These types use a flat number array per series and rely on xaxis.categories
   // for x labels. Types like scatter/bubble/heatmap/etc. carry x in the data.
   // funnel/pyramid are first-class bar aliases whose stage labels come from
-  // xaxis.categories, same as bar.
+  // xaxis.categories, same as bar. column is bar under another name.
   return (
     type === 'line' ||
     type === 'area' ||
     type === 'bar' ||
+    type === 'column' ||
     type === 'radar' ||
     type === 'funnel' ||
     type === 'pyramid'
@@ -334,6 +341,7 @@ function defaultAxisSeries(type: string): unknown[] {
     case 'line':
     case 'area':
     case 'bar':
+    case 'column':
     default:
       return [{ name: 'Series 1', data: [30, 40, 35, 50, 49, 60, 70] }];
   }

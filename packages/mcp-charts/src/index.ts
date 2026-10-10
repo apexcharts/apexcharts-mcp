@@ -9,7 +9,8 @@ export const id = 'charts' as const;
 export const metadata: ProductMetadata = {
   name: 'ApexCharts',
   useFor:
-    'Standard chart types: line, bar, area, pie, donut, scatter, bubble, heatmap, candlestick, boxPlot, radar, radialBar, rangeArea, rangeBar, treemap, polarArea.',
+    'Every ApexCharts chart type: line, area, bar, column, scatter, bubble, rangeArea, rangeBar, pie, donut, polarArea, radialBar, gauge, radar, heatmap, treemap, candlestick, boxPlot, ' +
+    'plus histogram, violin, raincloud, waterfall, dumbbell, streamgraph, funnel, pyramid, sunburst, icicle, unit and waffle.',
   tools: [
     'apexcharts_generate_config',
     'apexcharts_validate_config',

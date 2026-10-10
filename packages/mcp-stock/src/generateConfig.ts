@@ -29,8 +29,10 @@ export interface GenerateStockConfigInput {
  *
  * When `data` is not supplied, a short placeholder candle series (ascending
  * daily OHLCV bars) is generated so the returned config renders something
- * useful as-is. Note: ApexStock also requires `window.ApexCharts` to be set at
- * runtime — that's a host-page concern, not part of the options object.
+ * useful as-is. Note: ApexStock does not bundle ApexCharts; the host provides
+ * the constructor per instance (`new ApexStock(el, options, { ApexCharts })`),
+ * once via `ApexStock.setApexCharts(ApexCharts)`, or as the `window.ApexCharts`
+ * global. That is a host-page concern, not part of the options object.
  */
 export function generateStockConfig(
   input: GenerateStockConfigInput,

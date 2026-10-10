@@ -110,7 +110,7 @@ The AI decides which tool to call. You don't invoke them directly.
 | **apexstock** | `apexstock_generate_config`, `apexstock_validate_config`, `apexstock_get_reference` |
 | **apexmaps** | `apexmaps_generate_config`, `apexmaps_validate_config`, `apexmaps_get_reference` |
 
-Every product exposes `generate_config` (build a valid config from a short spec) and `validate_config` (check a config against its skill's rules and return structured issues), plus `get_reference` to read that product's knowledge base on demand. The chart tools add `apexcharts_list_types` (a typed catalog of the 29 supported chart types, including the v6 additions violin, funnel, pyramid, gauge, unit, waffle, sunburst and histogram, the v7.1 additions waterfall, dumbbell, streamgraph and raincloud, and the v7.6 addition icicle); `apexcharts_generate_config` covers all 29 and `apexcharts_validate_config` checks against 39 rules. `apexcharts_list_products` is a meta tool that lists the products this server exposes, their tool names, and the upstream library version each product's guidance targets.
+Every product exposes `generate_config` (build a valid config from a short spec) and `validate_config` (check a config against its skill's rules and return structured issues), plus `get_reference` to read that product's knowledge base on demand. The chart tools add `apexcharts_list_types` (a typed catalog of the 30 supported chart types, including the v6 additions violin, funnel, pyramid, gauge, unit, waffle, sunburst and histogram, the v7.1 additions waterfall, dumbbell, streamgraph and raincloud, the v7.6 addition icicle, and `column`, the synonym for `bar` that `chart.type` accepts since v7.9; each entry's `bundle` field says whether the default bundle has the type or names the add-on import a Tier 2 type needs); `apexcharts_generate_config` covers all 30 and `apexcharts_validate_config` checks against 40 rules. `apexcharts_list_products` is a meta tool that lists the products this server exposes, their tool names, and the upstream library version each product's guidance targets.
 
 ## Limiting which products load
 
@@ -170,15 +170,15 @@ Configure the container through environment variables rather than flags; its `HE
 
 Authoritative guidance comes from the per-product skill packages on npm:
 
-- [`apexcharts-skill`](https://www.npmjs.com/package/apexcharts-skill) — SKILL.md + cartesian/bar/financial/circular/grid/radar references + the feature platform and its v7 bundle tiers, tree-shaking, SSR, framework wrappers
-- [`apexgantt-skill`](https://www.npmjs.com/package/apexgantt-skill) — task data, dependencies, columns/toolbar, events, editing (CRUD/undo/calendar), the task-list grid (sort/filter/group), interaction (UI state, draw-to-create, export), framework wrappers
-- [`apextree-skill`](https://www.npmjs.com/package/apextree-skill) — data format, graph API, framework wrappers
-- [`apexsankey-skill`](https://www.npmjs.com/package/apexsankey-skill) — data format, styling/interaction, framework wrappers
-- [`apexgrid-skill`](https://www.npmjs.com/package/apexgrid-skill) — columns/templates, data pipeline, sort/filter, state and interaction features (row pinning/reordering, undo-redo, validators, localization), framework integration, vanilla JS
+- [`apexcharts-skill`](https://www.npmjs.com/package/apexcharts-skill): SKILL.md + cartesian/bar/financial/circular/grid/radar references + the feature platform and its bundle tiers (the v8 default bundle, add-on imports, `apexcharts/full`), tree-shaking, SSR, framework wrappers
+- [`apexgantt-skill`](https://www.npmjs.com/package/apexgantt-skill): task data, dependencies, columns/toolbar, events, editing (CRUD/undo/calendar), the task-list grid (sort/filter/group), interaction (UI state, draw-to-create, export), framework wrappers
+- [`apextree-skill`](https://www.npmjs.com/package/apextree-skill): data format, graph API, framework wrappers
+- [`apexsankey-skill`](https://www.npmjs.com/package/apexsankey-skill): data format, styling/interaction, framework wrappers
+- [`apexgrid-skill`](https://www.npmjs.com/package/apexgrid-skill): columns/templates, data pipeline, sort/filter, state and interaction features (row pinning/reordering, undo-redo, validators, localization), framework integration, vanilla JS
 - [`apexstock-skill`](https://www.npmjs.com/package/apexstock-skill): OHLC data format, technical indicators, streaming/appendData, trading overlays, the analysis workspace (range statistics, drawdown, measurements, comparison), state and export, theming, framework wrappers
 - [`apexmaps-skill`](https://www.npmjs.com/package/apexmaps-skill): series data formats, geo joins, geometry registry, projections, scales, drilldown, framework wrappers
 
-They're regular dependencies — bump the version in this repo's [package.json](package.json) to pick up upstream improvements. Each skill repo is the source of truth for its own docs.
+They're regular dependencies: to pick up upstream improvements, bump the version in this repo's [package.json](package.json) and in the product's `packages/mcp-<id>/package.json` (see [CLAUDE.md](CLAUDE.md)). Each skill repo is the source of truth for its own docs.
 
 ---
 
