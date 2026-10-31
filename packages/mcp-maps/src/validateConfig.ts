@@ -19,13 +19,28 @@ export interface ValidationResult {
 
 type AnyObj = Record<string, unknown>;
 
-const SERIES_TYPES = ['choropleth', 'bubble', 'marker', 'arc', 'line', 'hexbin'] as const;
+const SERIES_TYPES = ['choropleth', 'bubble', 'marker', 'arc', 'line', 'hexbin', 'pixel'] as const;
 
 /** What a hexbin cell's colour encodes (apexmaps HexbinSeriesOptions.aggregate). */
 const HEXBIN_AGGREGATES = ['count', 'sum', 'mean', 'min', 'max'] as const;
 
 /** Hexbin cell orientation: vertex up, or a vertex to the side. */
 const HEXBIN_ORIENTATIONS = ['pointy', 'flat'] as const;
+
+/** The mark a pixel map draws at each lattice point (apexmaps PixelShape). */
+const PIXEL_SHAPES = ['circle', 'square', 'diamond', 'hexagon'] as const;
+
+/** What a pixel lattice is fixed to: the ground, or the screen. */
+const PIXEL_GRIDS = ['geo', 'screen'] as const;
+
+/** How a pixel lattice's rows sit against each other. */
+const PIXEL_LATTICES = ['square', 'staggered'] as const;
+
+/**
+ * The spherical Mercator names web-map tiles are cut in (apexmaps
+ * src/geo/Projections.ts MERCATOR). geo.tiles draws on no other projection.
+ */
+const TILE_PROJECTIONS = ['mercator', 'webMercator', 'epsg:3857'] as const;
 
 const SCALE_TYPES = [
   'quantile',
@@ -179,7 +194,8 @@ export function validateMapsConfig(config: unknown): ValidationResult {
       });
     } else {
       const defaultType = isObject(chart) && typeof chart.type === 'string' ? chart.type : 'choropleth';
-      series.forEach((s, i) => checkSeries(s, i, defaultType, issues));
+      const projection = projectionName(config.geo);
+      series.forEach((s, i) => checkSeries(s, i, defaultType, projection, issues));
     }
   }
   // No series at all is valid: ApexMaps draws an automatic basemap.
@@ -191,6 +207,14 @@ function finalize(issues: ValidationIssue[]): ValidationResult {
   const errors = issues.filter((i) => i.severity === 'error');
   const warnings = issues.filter((i) => i.severity === 'warning');
   return { ok: errors.length === 0, errors, warnings, issues };
+}
+
+/** The projection name geo.projection asks for (a string, or a spec's name), if any. */
+function projectionName(geo: unknown): string | undefined {
+  if (!isObject(geo)) return undefined;
+  const p = geo.projection;
+  if (typeof p === 'string') return p;
+  return isObject(p) && typeof p.name === 'string' ? p.name : undefined;
 }
 
 function checkGeo(config: AnyObj, issues: ValidationIssue[]): void {
@@ -278,6 +302,52 @@ function checkGeo(config: AnyObj, issues: ValidationIssue[]): void {
       });
     }
   }
+
+  if (isObject(geo) && isObject(geo.tiles)) checkTiles(geo, geo.tiles, issues);
+}
+
+/**
+ * geo.tiles (apexmaps 1.2). Both failures leave the tile layer empty without an
+ * error: no url requests nothing, and on any projection but an unturned
+ * spherical Mercator the layer refuses to draw (only debug mode says why).
+ */
+function checkTiles(geo: AnyObj, tiles: AnyObj, issues: ValidationIssue[]): void {
+  if (typeof tiles.url !== 'string' || tiles.url === '') {
+    issues.push({
+      severity: 'warning',
+      rule: 'tiles-url-missing',
+      path: 'geo.tiles.url',
+      message: 'geo.tiles has no url, so ApexMaps requests no tiles and the underlay stays empty.',
+      fix: "Set geo.tiles.url to a tile server template such as 'https://tiles.example.com/{z}/{x}/{y}.png', or remove geo.tiles.",
+    });
+    return;
+  }
+
+  // An omitted projection falls back to the pack's recommended one, and no
+  // built-in pack recommends a Mercator, or to equalEarth for any other source.
+  const projection = geo.projection;
+  const spec = isObject(projection) ? projection : undefined;
+  const name = projectionName(geo);
+  const turned =
+    spec !== undefined &&
+    ((Array.isArray(spec.rotate) && spec.rotate.some((a) => typeof a === 'number' && a !== 0)) ||
+      (typeof spec.angle === 'number' && spec.angle !== 0) ||
+      spec.reflectX === true ||
+      spec.reflectY === true);
+  const mercator = name !== undefined && TILE_PROJECTIONS.includes(name as (typeof TILE_PROJECTIONS)[number]);
+  if (mercator && !turned) return;
+
+  issues.push({
+    severity: 'warning',
+    rule: 'tiles-need-web-mercator',
+    path: projection === undefined ? 'geo.projection' : 'geo.tiles',
+    message: mercator
+      ? 'geo.tiles draws only on an unturned Mercator, and this projection is rotated, angled or reflected, so no tiles are drawn.'
+      : projection === undefined
+        ? "geo.tiles draws only on geo.projection 'webMercator' (or 'mercator'), and none is set, so the map uses its pack's recommended projection (or equalEarth) and no tiles are drawn."
+        : `geo.tiles draws only on geo.projection 'webMercator' (or 'mercator'), not "${name ?? 'equalEarth'}", so no tiles are drawn.`,
+    fix: "Set geo.projection: 'webMercator' with no rotate, angle or reflect, or remove geo.tiles.",
+  });
 }
 
 function checkTheme(config: AnyObj, issues: ValidationIssue[]): void {
@@ -448,7 +518,64 @@ function checkHexbin(s: AnyObj, path: string, issues: ValidationIssue[]): void {
   }
 }
 
-function checkSeries(s: unknown, i: number, defaultType: string, issues: ValidationIssue[]): void {
+/**
+ * Pixel-specific rules (apexmaps 1.1).
+ *
+ * A pixel series is a choropleth with a different mark, so its data side is
+ * checked as one. What is its own is the lattice, and the library reads every
+ * lattice option with a silent fallback: a misspelt shape draws circles, a
+ * misspelt grid draws on 'geo', a misspelt lattice lets the shape decide. A
+ * config that names an option it does not get is the mistake worth reporting.
+ */
+function checkPixel(s: AnyObj, path: string, projection: string | undefined, issues: ValidationIssue[]): void {
+  const fallbacks: [string, readonly string[], string][] = [
+    ['shape', PIXEL_SHAPES, "draws circles (the default shape)"],
+    ['grid', PIXEL_GRIDS, "lays the lattice on 'geo' (the default)"],
+    ['lattice', PIXEL_LATTICES, 'lets the shape choose the lattice'],
+  ];
+  for (const [key, allowed, consequence] of fallbacks) {
+    const value = s[key];
+    if (value !== undefined && !allowed.includes(value as string)) {
+      issues.push({
+        severity: 'warning',
+        rule: `unknown-pixel-${key}`,
+        path: `${path}.${key}`,
+        message: `Unknown pixel ${key} "${String(value)}": ApexMaps ignores it and ${consequence}. Supported: ${allowed.join(', ')}.`,
+      });
+    }
+  }
+
+  // orthographic is the one globe (apexmaps src/geo/Projections.ts GLOBE), and
+  // a screen lattice there would be resampled on every frame of a spin.
+  if (s.grid === 'screen' && projection === 'orthographic') {
+    issues.push({
+      severity: 'warning',
+      rule: 'pixel-screen-grid-on-globe',
+      path: `${path}.grid`,
+      message: "grid 'screen' is not available on a globe, so ApexMaps warns and lays the lattice on 'geo' instead.",
+      fix: "Drop grid (the default 'geo' turns with the globe), or use a flat projection for an even on-screen lattice.",
+    });
+  }
+
+  const spacing = s.spacing;
+  if (spacing !== undefined && spacing !== null && !(typeof spacing === 'number' && Number.isFinite(spacing) && spacing > 0)) {
+    issues.push({
+      severity: 'warning',
+      rule: 'pixel-spacing-invalid',
+      path: `${path}.spacing`,
+      message: `spacing ${JSON.stringify(spacing)} is not a positive number, so ApexMaps warns and uses the default.`,
+      fix: "Give spacing in degrees on grid 'geo' (e.g. 3 on a world map) or in screen pixels on grid 'screen' (e.g. 8), or omit it.",
+    });
+  }
+}
+
+function checkSeries(
+  s: unknown,
+  i: number,
+  defaultType: string,
+  projection: string | undefined,
+  issues: ValidationIssue[],
+): void {
   const path = `series[${i}]`;
   if (!isObject(s)) {
     issues.push({
@@ -475,6 +602,7 @@ function checkSeries(s: unknown, i: number, defaultType: string, issues: Validat
   checkScale(s.scale, `${path}.scale`, issues);
   checkScale(s.colorScale, `${path}.colorScale`, issues);
   if (type === 'hexbin') checkHexbin(s, path, issues);
+  if (type === 'pixel') checkPixel(s, path, projection, issues);
 
   if (s.normalizeBy !== undefined && typeof s.normalizeBy !== 'string') {
     issues.push({
@@ -505,17 +633,6 @@ function checkSeries(s: unknown, i: number, defaultType: string, issues: Validat
       message:
         'curvature bulges the arc for looks and abandons the great-circle path, but geodesic is on (it defaults to true), so ApexMaps warns about the conflict.',
       fix: 'Drop curvature for real routes, or set geodesic: false for decorative arcs.',
-    });
-  }
-
-  if (type === 'arc' && s.joinBy !== undefined) {
-    issues.push({
-      severity: 'warning',
-      rule: 'arc-joinby-ignored',
-      path: `${path}.joinBy`,
-      message:
-        "ApexMaps 1.0 ignores joinBy on arc series: string endpoints resolve against each feature's key only (the pack's keyField), so an endpoint naming another field is dropped.",
-      fix: 'Use the feature key (e.g. ISO-3 codes on world/countries) or [lon, lat] for from/to.',
     });
   }
 

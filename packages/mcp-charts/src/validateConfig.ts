@@ -313,17 +313,32 @@ function checkSeriesDataPoints(
   data: unknown[],
   issues: ValidationIssue[],
 ): void {
+  // Since 8.1 Data.handleFormatXY / handleFormat2DArray read a missing entry
+  // in point-form data as a null row, a gap. A flat number array has no such
+  // fallback: undefined still reaches the path as NaN.
+  const pointForm = data.some((p) => isObject(p) || Array.isArray(p));
   data.forEach((point, j) => {
     const path = `series[${seriesIdx}].data[${j}]`;
 
     if (point === undefined) {
-      issues.push({
-        severity: 'error',
-        rule: 'undefined-data-point',
-        path,
-        message: 'Data points must be `null` for missing values, not `undefined`.',
-        fix: 'Replace `undefined` with `null`: undefined is silently dropped and breaks the chart.',
-      });
+      issues.push(
+        pointForm
+          ? {
+              severity: 'warning',
+              rule: 'undefined-data-point',
+              path,
+              message:
+                'An `undefined` entry in {x, y} or [x, y] data draws as a gap, but near the start of a series it also logs a misleading "mixed formats" warning. `null` is the documented gap.',
+              fix: 'Replace `undefined` with `null`.',
+            }
+          : {
+              severity: 'error',
+              rule: 'undefined-data-point',
+              path,
+              message: 'Data points must be `null` for missing values, not `undefined`.',
+              fix: 'Replace `undefined` with `null`: in a flat number array undefined reaches the path as NaN and breaks the chart.',
+            },
+      );
       return;
     }
 
@@ -577,16 +592,18 @@ function checkStacked(chart: AnyObj, type: string, issues: ValidationIssue[]): v
     return;
   }
   // Line, area and bar stack, including mixed charts whose series carry their
-  // own `type` (see chart.stackOnlyBar). `column` is rewritten to 'bar' before
-  // the stacked defaults are picked (Config.normalizeAliasedChartType), so it
-  // stacks exactly as bar does.
-  if (type !== 'bar' && type !== 'column' && type !== 'area' && type !== 'line') {
+  // own `type` (see chart.stackOnlyBar). `column` and `histogram` are rewritten
+  // to 'bar' before the stacked defaults are picked
+  // (Config.normalizeAliasedChartType), so Core draws them with BarStacked
+  // exactly as bar. A stacked histogram is tested upstream since 8.1.
+  const stackable = ['bar', 'column', 'histogram', 'area', 'line'];
+  if (!stackable.includes(type)) {
     issues.push({
       severity: 'error',
       rule: 'stacked-on-unsupported-type',
       path: 'chart.stacked',
-      message: `chart.stacked: true only works with type "bar", "column", "area" or "line". Got "${type}".`,
-      fix: 'Remove chart.stacked, or change chart.type to "bar", "column", "area" or "line".',
+      message: `chart.stacked: true only works with type "bar", "column", "histogram", "area" or "line". Got "${type}".`,
+      fix: 'Remove chart.stacked, or change chart.type to "bar", "column", "histogram", "area" or "line".',
     });
   }
 }
@@ -653,7 +670,7 @@ function tier2Issue(subject: string, b: BundleRequirement, path: string): Valida
 
 /**
  * Features a config switches on that the default bundle lacks. Each test is
- * the library's own "asked for but not loaded" check at v8.0.0, applied to the
+ * the library's own "asked for but not loaded" check (read at v8.7.0), applied to the
  * config alone (global window.Apex options are out of sight). One rule id for
  * both; `path` names the feature's option.
  */
@@ -671,6 +688,32 @@ function checkFeatureImports(config: AnyObj, issues: ValidationIssue[]): void {
       fix: bundleRemedy({
         import: 'apexcharts/features/drilldown',
         scripts: ['dist/features/drilldown.js'],
+      }),
+    });
+  }
+
+  // radial-targets (v8.5) has never been in the default bundle. Radial.draw
+  // warns once when `plotOptions.radialBar.targets` is a non-empty list and
+  // the feature is absent. Only the radial path draws them, and gauge is a
+  // radialBar alias (TypeAliases.js), so a targets list on any other type
+  // is never read either way.
+  const chartType = isObject(config.chart) ? config.chart.type : undefined;
+  const radialBar = isObject(config.plotOptions) ? config.plotOptions.radialBar : undefined;
+  if (
+    (chartType === 'radialBar' || chartType === 'gauge') &&
+    isObject(radialBar) &&
+    Array.isArray(radialBar.targets) &&
+    radialBar.targets.length > 0
+  ) {
+    issues.push({
+      severity: 'warning',
+      rule: 'feature-needs-import',
+      path: 'plotOptions.radialBar.targets',
+      message:
+        'radialBar and gauge targets need the radial-targets feature (v8.5), which is not in the default ApexCharts bundle. Without it the dial draws without them and one console warning names the import. It is free, not license-gated.',
+      fix: bundleRemedy({
+        import: 'apexcharts/features/radial-targets',
+        scripts: ['dist/features/radial-targets.js'],
       }),
     });
   }
@@ -717,7 +760,7 @@ function highlightPartsPath(config: AnyObj): string | null {
 
 /**
  * The top-level option names apexcharts reads: `Object.keys(new
- * Options().init())` at v8.0.0 (src/modules/settings/Options.js), the list
+ * Options().init())` at v8.7.0, unchanged since v8.0.0 (src/modules/settings/Options.js), the list
  * Config.warnUnknownOptionKeys checks against. Re-extract it at each re-pin.
  */
 const KNOWN_OPTION_KEYS = [

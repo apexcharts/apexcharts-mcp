@@ -20,7 +20,7 @@ describe('generateMapsConfig', () => {
   });
 
   it('emits the series type for non-choropleth series', () => {
-    for (const type of ['bubble', 'marker', 'arc', 'line', 'hexbin'] as const) {
+    for (const type of ['bubble', 'marker', 'arc', 'line', 'hexbin', 'pixel'] as const) {
       const config = generateMapsConfig({ type });
       const series = (config.series as Record<string, unknown>[])[0];
       expect(series.type).toBe(type);
@@ -112,9 +112,20 @@ describe('generateMapsConfig', () => {
     expect(series.colorScale).toBeUndefined();
   });
 
+  it('pixel takes the choropleth placeholder, join and scale', () => {
+    // A pixel map is a choropleth drawn as dots: same rows, same join, same scale.
+    const series = (generateMapsConfig({ type: 'pixel', palette: 'viridis' }).series as Record<string, unknown>[])[0];
+    const choropleth = (generateMapsConfig({ palette: 'viridis' }).series as Record<string, unknown>[])[0];
+    expect(series.type).toBe('pixel');
+    expect(series.joinBy).toEqual(['iso_a3', 'code']);
+    expect(series.data).toEqual(choropleth.data);
+    expect(series.scale).toEqual({ palette: 'viridis' });
+    expect(series.colorScale).toBeUndefined();
+  });
+
   it('generated output validates clean', async () => {
     const { validateMapsConfig } = await import('../src/validateConfig.js');
-    for (const type of ['choropleth', 'bubble', 'marker', 'arc', 'line', 'hexbin'] as const) {
+    for (const type of ['choropleth', 'bubble', 'marker', 'arc', 'line', 'hexbin', 'pixel'] as const) {
       const result = validateMapsConfig(generateMapsConfig({ type }));
       expect(result.ok).toBe(true);
       expect(result.issues).toEqual([]);

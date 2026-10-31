@@ -10,23 +10,23 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
   {
     file: 'SKILL.md',
     description:
-      'Top-level ApexMaps skill index: the six series types (choropleth, bubble, marker, arc, line, hexbin), ' +
-      'geometry registry, joins, lifecycle, public API, pitfalls. Read this first.',
+      'Top-level ApexMaps skill index: the seven series types (choropleth, bubble, marker, arc, line, hexbin, pixel), ' +
+      'geometry registry, joins, raster tiles, locale, lifecycle, public API, pitfalls. Read this first.',
   },
   {
     file: 'data-format.md',
     description:
-      'Datum shapes per series type, joinBy forms, fuzzyJoin, join diagnostics, normalizeBy, FIPS repair.',
+      'Datum shapes per series type, the pixel lattice options (shape, grid, spacing, size), joinBy forms, fuzzyJoin, join diagnostics, normalizeBy, FIPS repair.',
   },
   {
     file: 'geo-and-projections.md',
     description:
-      'Geometry registry packs and aliases, custom GeoJSON/TopoJSON, registerMap, projections, spec objects, camera API.',
+      'Geometry registry packs and aliases, custom GeoJSON/TopoJSON, registerMap, projections, spec objects, camera API, geo.tiles raster underlay (webMercator only), viewChange and getView().',
   },
   {
     file: 'styling-and-interaction.md',
     description:
-      'Scales, palettes, legends, tooltips, pattern/image fills, selection, linked maps, drilldown, a11y, theming, licensing.',
+      'Scales, palettes, legends, tooltips, pattern/image fills, selection, linked maps, drilldown, a11y, locale, theming, licensing.',
   },
   {
     file: 'framework-wrappers.md',

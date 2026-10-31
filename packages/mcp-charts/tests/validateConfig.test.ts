@@ -304,6 +304,20 @@ describe('validateChartConfig — axis data point shapes', () => {
     const undef = r.issues.filter((i) => i.rule === 'undefined-data-point');
     expect(undef).toHaveLength(1);
     expect(undef[0].path).toBe('series[0].data[1]');
+    expect(undef[0].severity).toBe('error');
+  });
+
+  it('only warns about undefined entries in point-form data, which draw as a gap since 8.1', () => {
+    for (const data of [
+      [{ x: 'a', y: 1 }, undefined, { x: 'c', y: 3 }],
+      [[1, 1], undefined, [3, 3]],
+    ]) {
+      const r = validateChartConfig({ chart: { type: 'line' }, series: [{ name: 'A', data }] });
+      const undef = r.issues.filter((i) => i.rule === 'undefined-data-point');
+      expect(undef).toHaveLength(1);
+      expect(undef[0].severity).toBe('warning');
+      expect(r.ok).toBe(true);
+    }
   });
 
   it('does not flag null data points', () => {
@@ -346,6 +360,14 @@ describe('validateChartConfig — other rules', () => {
       series: [{ name: 'A', data: [{ x: 1, y: 2 }] }],
     });
     expect(rules(r)).toContain('stacked-on-unsupported-type');
+  });
+
+  it('allows chart.stacked on histogram, which draws through the stacked bar renderer', () => {
+    const r = validateChartConfig({
+      chart: { type: 'histogram', stacked: true },
+      series: [{ name: 'A', data: [1, 2, 2, 3, 3, 3, 4] }],
+    });
+    expect(rules(r)).not.toContain('stacked-on-unsupported-type');
   });
 
   it('allows chart.stacked on bar', () => {
@@ -668,6 +690,25 @@ describe('validateChartConfig: features that need an import', () => {
   it('stays quiet for a drilldown block that is not enabled (the default)', () => {
     const r = validateChartConfig({ ...base, drilldown: { series: [] } });
     expect(r.issues).toEqual([]);
+  });
+
+  it('warns that radialBar and gauge targets need radial-targets (v8.5)', () => {
+    const targets = { plotOptions: { radialBar: { targets: [{ value: 80 }] } } };
+    for (const type of ['radialBar', 'gauge']) {
+      const r = validateChartConfig({ chart: { type }, series: [70], labels: ['A'], ...targets });
+      expect(rules(r), type).toEqual(['feature-needs-import']);
+      expect(r.issues[0].path).toBe('plotOptions.radialBar.targets');
+      expect(r.issues[0].fix).toContain("`import 'apexcharts/features/radial-targets'`");
+      expect(r.issues[0].fix).toContain('dist/features/radial-targets.js');
+      expect(r.ok).toBe(true);
+    }
+  });
+
+  it('stays quiet for an empty targets list (the default) and off the radial path', () => {
+    const radial = { chart: { type: 'radialBar' }, series: [70], labels: ['A'] };
+    expect(validateChartConfig({ ...radial, plotOptions: { radialBar: { targets: [] } } }).issues).toEqual([]);
+    // Only Radial.draw reads targets, so a bar chart carrying them never warns.
+    expect(validateChartConfig({ ...base, plotOptions: { radialBar: { targets: [{ value: 1 }] } } }).issues).toEqual([]);
   });
 
   it('warns about highlight parts wherever the library looks for them (v7.9)', () => {

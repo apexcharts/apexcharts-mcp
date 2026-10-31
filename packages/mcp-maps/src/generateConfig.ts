@@ -1,10 +1,13 @@
 /**
  * Input shape for apexmaps_generate_config.
  */
-export type MapsSeriesType = 'choropleth' | 'bubble' | 'marker' | 'arc' | 'line' | 'hexbin';
+export type MapsSeriesType = 'choropleth' | 'bubble' | 'marker' | 'arc' | 'line' | 'hexbin' | 'pixel';
 
 /** Series types whose colour comes from `scale` (the value scale) rather than `colorScale`. */
-const VALUE_SCALE_TYPES: ReadonlySet<MapsSeriesType> = new Set(['choropleth', 'hexbin']);
+const VALUE_SCALE_TYPES: ReadonlySet<MapsSeriesType> = new Set(['choropleth', 'hexbin', 'pixel']);
+
+/** Series that colour regions by a joined row: a pixel map is a choropleth drawn as dots. */
+const REGION_TYPES: ReadonlySet<MapsSeriesType> = new Set(['choropleth', 'pixel']);
 
 export interface GenerateMapsConfigInput {
   /** Series type. Default 'choropleth' (also ApexMaps' own default). */
@@ -56,7 +59,7 @@ export function generateMapsConfig(input: GenerateMapsConfigInput): Record<strin
 
   if (input.joinBy !== undefined) {
     series.joinBy = input.joinBy;
-  } else if (usingPlaceholder && type === 'choropleth') {
+  } else if (usingPlaceholder && REGION_TYPES.has(type)) {
     // The placeholder joins world countries on ISO alpha-3 codes.
     series.joinBy = ['iso_a3', 'code'];
   }
@@ -106,6 +109,7 @@ function hexbinPlaceholder(): unknown[] {
 function placeholderData(type: MapsSeriesType): unknown[] {
   switch (type) {
     case 'choropleth':
+    case 'pixel':
       // Population, millions (illustrative). null shows the no-data rendering.
       return [
         { code: 'USA', value: 335 },

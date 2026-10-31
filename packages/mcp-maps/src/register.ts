@@ -15,17 +15,18 @@ export function registerMapsTools(server: McpServer): void {
       annotations: { ...READ_ONLY_TOOL, title: 'Generate ApexMaps config' },
       description:
         'Build a minimal valid ApexMaps options object for a geographic visualization. ' +
-        'Supports the six series types: choropleth (default), bubble, marker, arc, line, hexbin. ' +
+        'Supports the seven series types: choropleth (default), bubble, marker, arc, line, hexbin, pixel. ' +
         'Geometry comes from the built-in registry (e.g. "world/countries", "us", "eu/nuts2"), ' +
         'so no GeoJSON is needed. Generates a small placeholder dataset when data is omitted. ' +
         'Use the result with `new ApexMaps(el, options)` then `await map.render()`.',
       inputSchema: {
         type: z
-          .enum(['choropleth', 'bubble', 'marker', 'arc', 'line', 'hexbin'])
+          .enum(['choropleth', 'bubble', 'marker', 'arc', 'line', 'hexbin', 'pixel'])
           .optional()
           .describe(
             'Series type. Default "choropleth". "hexbin" bins points into a hex lattice ' +
-              '(density); it takes points, never region-keyed rows.',
+              '(density); it takes points, never region-keyed rows. "pixel" is a choropleth ' +
+              'drawn as a lattice of dots: the same region-keyed rows, join and scale.',
           ),
         map: z
           .string()
@@ -39,7 +40,7 @@ export function registerMapsTools(server: McpServer): void {
           .array(z.unknown())
           .optional()
           .describe(
-            'Data array in the datum shape of `type`: choropleth rows `{ <key>, value }`, ' +
+            'Data array in the datum shape of `type`: choropleth and pixel rows `{ <key>, value }`, ' +
               'bubble/marker `{ lon, lat, ... }`, arc `{ from, to }`, line `{ path: [[lon,lat],...] }`, ' +
               'hexbin `{ lon, lat, value? }`. Omit for a placeholder dataset.',
           ),
@@ -80,8 +81,9 @@ export function registerMapsTools(server: McpServer): void {
       description:
         'Check an ApexMaps options object against what the library does with it: geo.map present ' +
         'and a built-in map id (or a URL / inline geometry), hex layouts only where one exists, ' +
-        'a frameable geo.view.fit, known series types, arc from/to endpoints, line paths, ' +
-        'bubble/marker coordinates or something to join on, hexbin point positions and aggregates (a hexbin has no joinBy), ' +
+        'a frameable geo.view.fit, geo.tiles with a url on a webMercator projection, known series types, ' +
+        'arc from/to endpoints, line paths, bubble/marker coordinates or something to join on, ' +
+        'hexbin point positions and aggregates (a hexbin has no joinBy), pixel shape / grid / lattice / spacing, ' +
         '[lon, lat] ordering, joinBy shape, null (not undefined) for missing ' +
         'values, and known scale / projection / palette names. Returns structured issues ' +
         'with stable rule ids, severity, path, and a fix when there is a one-shot remedy.',

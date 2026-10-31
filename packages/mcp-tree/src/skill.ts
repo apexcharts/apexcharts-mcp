@@ -24,7 +24,7 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
   },
   {
     file: 'framework-wrappers.md',
-    description: 'React, Vue 3, and Angular integration for ApexTree.',
+    description: 'React, Vue 3, and Angular integration for ApexTree, and web components (shadow DOM).',
   },
 ];
 

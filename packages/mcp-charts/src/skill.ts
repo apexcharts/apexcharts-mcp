@@ -37,7 +37,7 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
   {
     file: 'circular-charts.md',
     description:
-      'Pie, donut, polar area, radial bar, the v6 gauge (arc/needle, bands, ticks), the v6.7 sunburst hierarchy, and the v6.6 unit/waffle charts (incl. v6.10 unit-shapes and the v7.0 pictogram glyphs), with sunburst and unit/waffle Tier 2 since v8.0 (import apexcharts/sunburst or apexcharts/unit): flat-array series format, labels, donut center customization, and the radialBar value domain (plotOptions.radialBar min/max, default 0-100).',
+      'Pie, donut, polar area, radial bar, the v6 gauge (arc/needle, bands, ticks), the v6.7 sunburst hierarchy, and the v6.6 unit/waffle charts (incl. v6.10 unit-shapes and the v7.0 pictogram glyphs), with sunburst and unit/waffle Tier 2 since v8.0 (import apexcharts/sunburst or apexcharts/unit): flat-array series format, labels, donut center customization, the radialBar value domain (plotOptions.radialBar min/max, default 0-100), and the v8.5 radialBar/gauge targets (an add-on: import apexcharts/features/radial-targets).',
   },
   {
     file: 'grid-charts.md',
@@ -51,7 +51,7 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
   {
     file: 'feature-platform.md',
     description:
-      'The opt-in feature platform and its v8 bundle tiers (what the default bundle carries, the add-on imports, and apexcharts/full): small multiples (Trellis), plugins (Weave), canvas renderer (Strata), custom series (Marks), undo/redo (Rewind), shareable views (Perspectives), themes/tokens (Facet), easing (Cadence), crossfilter (Link), annotation authoring (Ink), measure ruler, context menu, storyboard, the v7.9 highlight filter (highlightFilter), streaming, and drilldown (Tier 2 since v8.0), with config shapes, APIs, import paths, licensing, and the v7.0 and v8.0 breaking changes. Renamed from v6-features.md in skill 3.0.0.',
+      'The opt-in feature platform and its v8 bundle tiers (what the default bundle carries, the add-on imports, and apexcharts/full): small multiples (Trellis), plugins (Weave), canvas renderer (Strata), custom series (Marks), undo/redo (Rewind), shareable views (Perspectives), themes/tokens (Facet), easing (Cadence), crossfilter (Link), annotation authoring (Ink), measure ruler, context menu, storyboard, the v7.9 highlight filter (highlightFilter), streaming, drilldown (Tier 2 since v8.0), radialBar targets (v8.5, an add-on), cooperative mouse-wheel zoom (v8.3), with config shapes, APIs, import paths, licensing, and the v7.0 and v8.0 breaking changes. Renamed from v6-features.md in skill 3.0.0.',
   },
   {
     file: 'tree-shaking.md',

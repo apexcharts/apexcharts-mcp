@@ -22,7 +22,7 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
   },
   {
     file: 'framework-wrappers.md',
-    description: 'React, Vue 3, and Angular integration for ApexSankey.',
+    description: 'React, Vue 3, and Angular integration for ApexSankey, and web components (shadow DOM).',
   },
   {
     file: 'motion-events-and-plugins.md',

@@ -57,7 +57,7 @@ packages/
   mcp-sankey/                       # @apexcharts-mcp/sankey — generate/validate/get_reference
   mcp-grid/                         # @apexcharts-mcp/grid   — generate/validate/get_reference
   mcp-stock/                        # @apexcharts-mcp/stock  — generate/validate/get_reference (OHLC-aware)
-  mcp-maps/                         # @apexcharts-mcp/maps   — generate/validate/get_reference (six series types, geo registry)
+  mcp-maps/                         # @apexcharts-mcp/maps   — generate/validate/get_reference (seven series types, geo registry)
 ```
 
 Each workspace package is `private: true` — only the root `apexcharts-mcp` ships to npm, with all workspace code inlined by esbuild.
@@ -87,8 +87,8 @@ Each workspace package is `private: true` — only the root `apexcharts-mcp` shi
 | `apexstock_generate_config`   | implemented | Build a valid ApexStock config (OHLC series, indicators, overlays).    |
 | `apexstock_validate_config`   | implemented | Validate an ApexStock config (flat o/h/l/c keys, tuple order, x, ordering, indicators). |
 | `apexmaps_get_reference`      | implemented | List or read files from the apexmaps-skill knowledge base.             |
-| `apexmaps_generate_config`    | implemented | Build a valid ApexMaps options object (choropleth/bubble/marker/arc/line/hexbin, geo registry pack, joinBy). |
-| `apexmaps_validate_config`    | implemented | Validate an ApexMaps config (geo.map present, series union shapes, arc from/to, hexbin positions/aggregate, [lon, lat] order, joinBy, scale/projection/palette names). |
+| `apexmaps_generate_config`    | implemented | Build a valid ApexMaps options object (choropleth/bubble/marker/arc/line/hexbin/pixel, geo registry pack, joinBy). |
+| `apexmaps_validate_config`    | implemented | Validate an ApexMaps config (geo.map present, geo.tiles url and webMercator projection, series union shapes, arc from/to, hexbin positions/aggregate, pixel shape/grid/lattice/spacing, [lon, lat] order, joinBy, scale/projection/palette names). |
 
 ### Validator rule conventions (charts)
 
@@ -199,7 +199,7 @@ Everything above starts from what the skill docs SAY and tests it against the ty
 
    Catalog lists are read by anchored AST lookup (a named declaration, or the `z.enum()` under a named input-schema property), never by scanning the file for the words: a type name appearing in a nearby description string is not the type being supported. A drift in either direction fails, because a catalog entry the library does not have means the tools emit something that cannot render.
 
-   Applies to the three products that enumerate their kinds this way: apexcharts (`ApexChart.type`, 30 types at 8.0.0), apexmaps (`Series.type`, 6 series types) and apex-grid (`ColumnConfiguration.type`, 13 column types at 3.5.0). apex-grid was added after its validator kept only three types and rejected `type: 'date'` while the bundled skill documented it. `--at <version>` gates against a different version, which is how it is retro-tested: `check:chart-types charts --at 7.6.0` against the pre-7.6 docs reports `icicle` missing from both the docs and `chartCatalog.ts` and exits 1, while `--at 7.5.1` passes. A version belongs to one library, so `--at` needs a product name; without one the script exits 2 rather than installing that version of every library.
+   Applies to the three products that enumerate their kinds this way: apexcharts (`ApexChart.type`, 30 types at 8.7.0), apexmaps (`Series.type`, 7 series types at 1.2.0) and apex-grid (`ColumnConfiguration.type`, 13 column types at 3.6.0). apex-grid was added after its validator kept only three types and rejected `type: 'date'` while the bundled skill documented it. `--at <version>` gates against a different version, which is how it is retro-tested: `check:chart-types charts --at 7.6.0` against the pre-7.6 docs reports `icicle` missing from both the docs and `chartCatalog.ts` and exits 1, while `--at 7.5.1` passes. A version belongs to one library, so `--at` needs a product name; without one the script exits 2 rather than installing that version of every library.
 
    **It enforces the publish order**, which is the one thing to know before a release. The gate reads the source skill repos locally and the **installed** skill packages in CI (`npm run check:chart-types` is a step in `publish.yml` before `npm publish`). So after adding a chart type to the catalog, CI fails with "not in the library" until the matching skill is published and bumped here: a build whose `list_types` advertises a type its own bundled knowledge base cannot explain does not ship. Publish the skill, bump it in the root and `packages/mcp-<id>/package.json`, run `npx -y npm@11 install` (one copy in the lockfile), then re-run.
 4. **Surface delta (report)**: `npm run check:surface-delta` (`scripts/check-surface-delta.mjs`) extracts the surface at the pinned version AND at latest, diffs four dimensions (chart types, methods, option paths, API types + members added to existing types), and reports what appeared that the docs never mention. Scoped to the delta, not to total coverage: a skill is a curated brief, so it never fails on a delta and a human decides what earns a mention. `--from`/`--to` retro-test a past release pair. Exits non-zero only when it could not measure.

@@ -220,10 +220,78 @@ describe('validateMapsConfig', () => {
     expect(rules({ geo: { map: 'world', view: { fit: [100, -50, 200, 10] } } })).toEqual(['view-fit-unframeable']);
     expect(rules({ geo: { map: 'world', view: { fit: [100, -50, 180, 10] } } })).toEqual([]);
     expect(rules({ ...GEO, series: [{ type: 'line', data: [{ path: [[0, 0]] }] }] })).toEqual(['line-path-invalid']);
-    expect(rules({ ...GEO, series: [{ type: 'arc', joinBy: 'name', data: [{ from: 'France', to: 'Brazil' }] }] })).toEqual([
-      'arc-joinby-ignored',
-    ]);
     expect(rules({ ...GEO, series: [{ scale: { type: 'threshold', breaks: [] } }] })).toEqual(['threshold-missing-breaks']);
+  });
+
+  it('accepts joinBy on an arc series', () => {
+    // apexmaps 1.0.1 resolves string endpoints through joinBy's geometry field.
+    // 1.0.0 ignored it, and a warning written for that release fired on correct
+    // configs from then on.
+    expect(rules({ ...GEO, series: [{ type: 'arc', joinBy: 'name', data: [{ from: 'France', to: 'Brazil' }] }] })).toEqual([]);
+  });
+
+  describe('geo.tiles', () => {
+    const URL = 'https://tiles.example.com/{z}/{x}/{y}.png';
+
+    it('accepts tiles with a url on an unturned web Mercator', () => {
+      for (const projection of ['webMercator', 'mercator', 'epsg:3857', { name: 'webMercator' }]) {
+        expect(rules({ geo: { map: 'us/states', projection, tiles: { url: URL } } })).toEqual([]);
+      }
+    });
+
+    it('tiles-need-web-mercator', () => {
+      // No projection: the pack's recommended one (albersUsa for us/states) is used.
+      expect(rules({ geo: { map: 'us/states', tiles: { url: URL } } })).toEqual(['tiles-need-web-mercator']);
+      expect(rules({ geo: { map: 'world', projection: 'equalEarth', tiles: { url: URL } } })).toEqual([
+        'tiles-need-web-mercator',
+      ]);
+      expect(
+        rules({ geo: { map: 'world', projection: { name: 'webMercator', rotate: [-10, 0] }, tiles: { url: URL } } }),
+      ).toEqual(['tiles-need-web-mercator']);
+    });
+
+    it('tiles-url-missing', () => {
+      expect(rules({ geo: { map: 'world', projection: 'webMercator', tiles: { attribution: 'x' } } })).toEqual([
+        'tiles-url-missing',
+      ]);
+    });
+  });
+
+  describe('pixel', () => {
+    const ROWS = [{ code: 'FRA', value: 7 }, { code: 'DEU', value: 4 }];
+
+    it('accepts a pixel series as a series type and as chart.type', () => {
+      // The release that added it: pixel shipped in apexmaps 1.1.0.
+      expect(
+        rules({ ...GEO, series: [{ type: 'pixel', joinBy: ['iso_a3', 'code'], data: ROWS, shape: 'hexagon', spacing: 2.5 }] }),
+      ).toEqual([]);
+      expect(rules({ ...GEO, chart: { type: 'pixel' }, series: [{ data: ROWS, grid: 'screen', lattice: 'square', size: '100%' }] })).toEqual(
+        [],
+      );
+    });
+
+    it('unknown-pixel-shape / -grid / -lattice', () => {
+      expect(rules({ ...GEO, series: [{ type: 'pixel', data: ROWS, shape: 'triangle' }] })).toEqual(['unknown-pixel-shape']);
+      expect(rules({ ...GEO, series: [{ type: 'pixel', data: ROWS, grid: 'map' }] })).toEqual(['unknown-pixel-grid']);
+      expect(rules({ ...GEO, series: [{ type: 'pixel', data: ROWS, lattice: 'hex' }] })).toEqual(['unknown-pixel-lattice']);
+    });
+
+    it('pixel-screen-grid-on-globe', () => {
+      const globe = { geo: { map: 'world/countries', projection: 'orthographic' } };
+      expect(rules({ ...globe, series: [{ type: 'pixel', data: ROWS, grid: 'screen' }] })).toEqual(['pixel-screen-grid-on-globe']);
+      expect(rules({ ...globe, series: [{ type: 'pixel', data: ROWS }] })).toEqual([]);
+      expect(rules({ ...GEO, series: [{ type: 'pixel', data: ROWS, grid: 'screen' }] })).toEqual([]);
+    });
+
+    it('pixel-spacing-invalid', () => {
+      expect(rules({ ...GEO, series: [{ type: 'pixel', data: ROWS, spacing: 0 }] })).toEqual(['pixel-spacing-invalid']);
+      expect(rules({ ...GEO, series: [{ type: 'pixel', data: ROWS, spacing: '3' }] })).toEqual(['pixel-spacing-invalid']);
+    });
+
+    it('checks pixel rows the way it checks choropleth rows', () => {
+      expect(rules({ ...GEO, series: [{ type: 'pixel', data: [{ code: 'FRA', value: 'n/a' }] }] })).toEqual(['value-not-numeric']);
+      expect(rules({ ...GEO, series: [{ type: 'pixel', joinBy: 7 }] })).toEqual(['joinby-invalid']);
+    });
   });
 
   it('selection-modifier-conflicts-pan', () => {
