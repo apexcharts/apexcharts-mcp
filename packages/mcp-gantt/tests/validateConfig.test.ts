@@ -74,9 +74,28 @@ describe('validateGanttConfig — per-task rules', () => {
     expect(same.issues).toEqual([]);
   });
 
-  it('errors on a task with a startTime but no endTime (the library throws)', () => {
+  it('warns on a startTime with no endTime and no type (3.20.0 infers a milestone, 3.19 throws)', () => {
     const result = validateGanttConfig({ series: [{ id: 'a', name: 'A', startTime: '01-05-2026' }] });
+    expect(result.ok).toBe(true);
+    expect(result.warnings.map((w) => w.rule)).toEqual(['milestone-inferred']);
+    expect(result.warnings[0].message).toMatch(/3\.20\.0/);
+    expect(result.warnings[0].message).toMatch(/3\.19/);
+  });
+
+  it('errors on an explicit type "task" with a startTime but no endTime (throws on every version)', () => {
+    const result = validateGanttConfig({ series: [{ id: 'a', name: 'A', startTime: '01-05-2026', type: 'task' }] });
     expect(result.errors.map((e) => e.rule)).toEqual(['task-missing-endTime']);
+  });
+
+  it('warns on a task type that does not exist, such as "summary"', () => {
+    const result = validateGanttConfig({ series: [{ ...ok, type: 'summary' }] });
+    expect(result.ok).toBe(true);
+    expect(result.warnings.map((w) => w.rule)).toEqual(['task-type-unknown']);
+  });
+
+  it('errors on a childless row with no dates even when showSummaryBar is set (the library throws)', () => {
+    const result = validateGanttConfig({ series: [{ id: 'p', name: 'P', showSummaryBar: true }] });
+    expect(result.errors.map((e) => e.rule)).toEqual(['task-missing-startTime']);
   });
 
   it('accepts a milestone with only a startTime', () => {
@@ -103,6 +122,51 @@ describe('validateGanttConfig — per-task rules', () => {
   it('errors on a leaf task with no dates at all', () => {
     const result = validateGanttConfig({ series: [{ id: 'a', name: 'A' }] });
     expect(result.errors.map((e) => e.rule)).toEqual(['task-missing-startTime']);
+    expect(result.errors[0].message).toMatch(/has no startTime and no children/);
+  });
+
+  it('warns on a parent with only an endTime (3.20.0 draws a summary bar, 3.19 throws)', () => {
+    const result = validateGanttConfig({
+      series: [{ id: 'p', name: 'P', endTime: '01-31-2026' }, { ...ok, id: 'c', parentId: 'p' }],
+    });
+    expect(result.ok).toBe(true);
+    expect(result.warnings.map((w) => w.rule)).toEqual(['parent-single-date']);
+    expect(result.warnings[0].path).toBe('series[0].startTime');
+    expect(result.warnings[0].message).toMatch(/3\.20\.0/);
+    expect(result.warnings[0].message).toMatch(/3\.19/);
+  });
+
+  it('warns on a parent with only a startTime and no type as a summary bar, not a milestone', () => {
+    const result = validateGanttConfig({
+      series: [{ id: 'p', name: 'P', startTime: '01-01-2026' }, { ...ok, id: 'c', parentId: 'p' }],
+    });
+    expect(result.ok).toBe(true);
+    expect(result.warnings.map((w) => w.rule)).toEqual(['parent-single-date']);
+    expect(result.warnings[0].message).toMatch(/summary bar/);
+  });
+
+  it('still errors on a parent with only a startTime and type "task" (throws on every version)', () => {
+    const result = validateGanttConfig({
+      series: [{ id: 'p', name: 'P', startTime: '01-01-2026', type: 'task' }, { ...ok, id: 'c', parentId: 'p' }],
+    });
+    expect(result.errors.map((e) => e.rule)).toEqual(['task-missing-endTime']);
+  });
+
+  it('errors on a leaf with only an endTime (throws on every version)', () => {
+    const result = validateGanttConfig({ series: [{ id: 'a', name: 'A', endTime: '01-31-2026' }] });
+    expect(result.errors.map((e) => e.rule)).toEqual(['task-missing-startTime']);
+  });
+
+  it('accepts a numeric id with a warning, and matches it from a string parentId and taskId', () => {
+    const result = validateGanttConfig({
+      series: [
+        { id: 1, name: 'P' },
+        { ...ok, id: 'c', parentId: '1' },
+        { ...ok, id: 'd', dependency: { taskId: 1 } },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    expect(result.warnings.map((w) => w.rule)).toEqual(['id-not-string']);
   });
 
   it('accepts a split task whose dates come from its segments', () => {
@@ -173,7 +237,10 @@ describe('validateGanttConfig — parentId', () => {
     const result = validateGanttConfig({
       series: [{ ...ok, parentId: 'does-not-exist' }],
     });
-    expect(result.errors.some((e) => e.rule === 'orphan-parentId')).toBe(true);
+    const orphan = result.errors.find((e) => e.rule === 'orphan-parentId');
+    expect(orphan).toBeDefined();
+    // 3.19 drops the row; 3.20.0 attaches it to the root. The message names both.
+    expect(orphan?.message).toMatch(/3\.20\.0/);
   });
 
   it('flags self-parent', () => {
@@ -181,6 +248,47 @@ describe('validateGanttConfig — parentId', () => {
       series: [{ ...ok, parentId: ok.id }],
     });
     expect(result.errors.some((e) => e.rule === 'parentId-self')).toBe(true);
+  });
+
+  it('flags a cycle of parents (a under b under a) once', () => {
+    const result = validateGanttConfig({
+      series: [
+        { ...ok, id: 'a', parentId: 'b' },
+        { ...ok, id: 'b', parentId: 'a' },
+        { ...ok, id: 'c', parentId: 'a' },
+      ],
+    });
+    const cycles = result.errors.filter((e) => e.rule === 'parentId-cycle');
+    expect(cycles).toHaveLength(1);
+    expect(cycles[0].message).toMatch(/a under b under a/);
+    expect(cycles[0].message).toMatch(/3\.20\.0/);
+  });
+
+  it('does not flag a deep chain that reaches the root', () => {
+    const result = validateGanttConfig({
+      series: [
+        { id: 'a', name: 'A' },
+        { id: 'b', name: 'B', parentId: 'a' },
+        { ...ok, id: 'c', parentId: 'b' },
+      ],
+    });
+    expect(result.issues).toEqual([]);
+  });
+});
+
+describe('validateGanttConfig: calendar', () => {
+  it('warns when workingWeekdays names no weekday from 0 to 6', () => {
+    for (const workingWeekdays of [[], [7]]) {
+      const result = validateGanttConfig({ series: [ok], calendar: { workingWeekdays } });
+      expect(result.ok).toBe(true);
+      expect(result.warnings.map((w) => w.rule)).toEqual(['calendar-no-working-weekdays']);
+    }
+  });
+
+  it('accepts numeric strings and a usual week', () => {
+    expect(validateGanttConfig({ series: [ok], calendar: { workingWeekdays: ['1', '2'] } }).issues).toEqual([]);
+    expect(validateGanttConfig({ series: [ok], calendar: { workingWeekdays: [1, 2, 3, 4, 5] } }).issues).toEqual([]);
+    expect(validateGanttConfig({ series: [ok], calendar: {} }).issues).toEqual([]);
   });
 });
 
@@ -239,6 +347,23 @@ describe('validateGanttConfig — dependencies', () => {
     });
     const result = validateGanttConfig({ series });
     expect(result.ok).toBe(true);
+  });
+
+  it('warns that dependency.lagUnit has no effect', () => {
+    const result = validateGanttConfig({
+      series: [
+        ok,
+        {
+          id: 't2',
+          name: 'B',
+          startTime: '01-16-2026',
+          endTime: '02-01-2026',
+          dependency: { taskId: 't1', type: 'FS', lag: 2, lagUnit: 'calendar' },
+        },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    expect(result.warnings.map((w) => w.rule)).toEqual(['dependency-lagUnit-no-effect']);
   });
 
   it('detects a simple dependency cycle (A → B → A)', () => {

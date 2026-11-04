@@ -23,15 +23,15 @@ export function registerGanttTools(server: McpServer): void {
           .array(z.unknown())
           .optional()
           .describe(
-            'Task array (`series`). Each task: { id, name, startTime, endTime?, progress?, type?, parentId?, dependency? }.',
+            'Task array (`series`). Each task: { id, name, startTime, endTime?, progress?, type?, parentId?, dependency? }. ' +
+              'Give single-date markers `type: "milestone"` (3.19 and earlier throw on a missing endTime otherwise).',
           ),
-        title: z.string().optional().describe('Optional chart title.'),
         height: z
           .number()
           .int()
           .positive()
           .optional()
-          .describe('Chart height in px (default 600).'),
+          .describe('Chart height in px, emitted as the top-level `height` option (default 600 here; the library default is 500px).'),
         inputDateFormat: z
           .string()
           .optional()
@@ -67,11 +67,14 @@ export function registerGanttTools(server: McpServer): void {
       annotations: { ...READ_ONLY_TOOL, title: 'Validate ApexGantt config' },
       description:
         'Check an ApexGantt options object against what the library does with it ' +
-        '(missing id/name, tasks missing the dates the library requires, an incomplete ' +
-        '`parsing` map, duplicate ids, orphan parentId, progress out of 0 to 100, ' +
+        '(missing id/name, numeric ids, tasks missing the dates the library requires, a missing endTime ' +
+        'with no type (a milestone from 3.20.0, a throw before), a parent with only one date (a summary bar ' +
+        'from 3.20.0, a throw before), an unknown task type, an incomplete ' +
+        '`parsing` map, duplicate ids, orphan parentId, parentId cycles, progress out of 0 to 100, ' +
         'ISO dates with the default MM-DD-YYYY format, ' +
         'dependency object using `id` instead of `taskId`, unknown dependency target, ' +
-        'self-dependency, invalid dependency type, cycles, baseline missing start/end). ' +
+        'self-dependency, invalid dependency type, `lagUnit` (no effect), dependency cycles, baseline missing start/end, ' +
+        '`calendar.workingWeekdays` naming no weekday). ' +
         'Returns structured issues with stable rule ids.',
       inputSchema: {
         config: z.record(z.string(), z.unknown()).describe('The ApexGantt options object to validate.'),
@@ -94,7 +97,8 @@ export function registerGanttTools(server: McpServer): void {
         'Read authoritative ApexGantt documentation from the bundled apexgantt-skill ' +
         'knowledge base. Call with no arguments to list all available files. Call with ' +
         '`file` to return that file as markdown. Use this to look up task data format, ' +
-        'dependency types, view modes, the update lifecycle, or framework integration.',
+        'dependency types, zoom (`pixelsPerDay`), the update lifecycle, events and veto hooks, ' +
+        'the editing API, or framework integration.',
       inputSchema: {
         file: z
           .string()

@@ -26,6 +26,18 @@ function isObject(v: unknown): v is AnyObj {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
+/**
+ * The key ApexGantt matches an id by. The library compares `id`, `parentId`
+ * and `dependency.taskId` by their string value, so the number 1 and the
+ * string '1' meet. Anything that is neither a string nor a finite number has
+ * no key.
+ */
+function idKey(v: unknown): string | undefined {
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+  return undefined;
+}
+
 /** State shared across one validation run. */
 interface Context {
   inputDateFormat: string;
@@ -39,7 +51,9 @@ interface Context {
 /**
  * Validate an ApexGantt options object against the rules in apexgantt-skill's
  * SKILL.md and references/dependencies.md, as checked against the apexgantt
- * 3.18.1 runtime. Never throws.
+ * 3.19.0 and 3.20.0 runtimes. Where 3.20.0 changes the outcome (a missing
+ * endTime, a parent with one date, an orphan or cyclic parentId, an empty
+ * workingWeekdays), the message says what each version does. Never throws.
  */
 export function validateGanttConfig(config: unknown): ValidationResult {
   const issues: ValidationIssue[] = [];
@@ -79,6 +93,7 @@ export function validateGanttConfig(config: unknown): ValidationResult {
   // first, so the TaskInput checks below would read the wrong field names.
   if (config.parsing !== undefined) {
     checkParsing(config.parsing, issues);
+    checkCalendar(config.calendar, issues);
     return finalize(issues);
   }
 
@@ -87,15 +102,41 @@ export function validateGanttConfig(config: unknown): ValidationResult {
     ids: collectIds(series, issues),
     parentIds: new Set(
       series
-        .map((t) => (isObject(t) && typeof t.parentId === 'string' ? t.parentId : undefined))
+        .map((t) => (isObject(t) ? idKey(t.parentId) : undefined))
         .filter((p): p is string => p !== undefined),
     ),
     isoReported: false,
   };
   series.forEach((task, i) => checkTask(task, i, ctx, issues));
+  checkParentCycles(series, ctx, issues);
   checkDependencyCycles(series, issues);
+  checkCalendar(config.calendar, issues);
 
   return finalize(issues);
+}
+
+/**
+ * calendar.workingWeekdays: apexgantt 3.20.0 reads numeric strings as numbers
+ * and, for a list that names no weekday from 0 to 6, logs a warning and uses
+ * Monday to Friday. 3.19 and earlier make every day non-working for such a
+ * list (and ignore numeric strings).
+ */
+function checkCalendar(calendar: unknown, issues: ValidationIssue[]): void {
+  if (!isObject(calendar) || calendar.workingWeekdays === undefined) return;
+  const raw = calendar.workingWeekdays;
+  const days = (Array.isArray(raw) ? raw : [])
+    .map((d) => (typeof d === 'string' && d.trim() !== '' ? Number(d) : d))
+    .filter((d) => typeof d === 'number' && Number.isInteger(d) && d >= 0 && d <= 6);
+  if (days.length > 0) return;
+  issues.push({
+    severity: 'warning',
+    rule: 'calendar-no-working-weekdays',
+    path: 'calendar.workingWeekdays',
+    message:
+      `calendar.workingWeekdays ${JSON.stringify(raw)} names no weekday from 0 (Sunday) to 6 (Saturday). ` +
+      'apexgantt 3.20.0+ logs a warning and uses Monday to Friday; 3.19 and earlier make every day non-working.',
+    fix: 'List the working days as numbers, e.g. workingWeekdays: [1, 2, 3, 4, 5], or leave the field out for Monday to Friday.',
+  });
 }
 
 function checkParsing(parsing: unknown, issues: ValidationIssue[]): void {
@@ -123,8 +164,8 @@ function collectIds(series: unknown[], issues: ValidationIssue[]): Set<string> {
   const dupes = new Set<string>();
   series.forEach((task, i) => {
     if (!isObject(task)) return;
-    const id = task.id;
-    if (typeof id !== 'string') return;
+    const id = idKey(task.id);
+    if (id === undefined) return;
     if (seen.has(id) && !dupes.has(id)) {
       issues.push({
         severity: 'error',
@@ -154,7 +195,18 @@ function checkTask(task: unknown, i: number, ctx: Context, issues: ValidationIss
     return;
   }
 
-  if (typeof task.id !== 'string' || task.id.length === 0) {
+  if (typeof task.id === 'number' && Number.isFinite(task.id) && task.id !== 0) {
+    // The library matches ids by value, so a numeric id works; the type says string.
+    issues.push({
+      severity: 'warning',
+      rule: 'id-not-string',
+      path: `${path}.id`,
+      message:
+        `Task id ${task.id} is a number. ApexGantt compares ids, parentId and dependency ids by their string value, ` +
+        `so it still works and matches "${task.id}", but TaskInput.id is typed string.`,
+      fix: `Use id: "${task.id}".`,
+    });
+  } else if (typeof task.id !== 'string' || task.id.length === 0) {
     issues.push({
       severity: 'error',
       rule: 'task-missing-id',
@@ -204,32 +256,38 @@ function checkTask(task: unknown, i: number, ctx: Context, issues: ValidationIss
   }
 
   if (task.parentId !== undefined) {
-    if (typeof task.parentId !== 'string') {
+    const parentKey = idKey(task.parentId);
+    if (parentKey === undefined) {
       issues.push({
         severity: 'error',
         rule: 'parentId-not-string',
         path: `${path}.parentId`,
         message: 'parentId must be a string matching another task id.',
       });
-    } else if (task.parentId === task.id) {
+    } else if (parentKey === idKey(task.id)) {
       issues.push({
         severity: 'error',
         rule: 'parentId-self',
         path: `${path}.parentId`,
-        message: 'A task cannot be its own parent.',
+        message:
+          'A task cannot be its own parent. Through apexgantt 3.19 this overflows the stack; ' +
+          'from 3.20.0 it logs a "makes a cycle of parents" warning and the task is shown at the root.',
+        fix: 'Point parentId at a different task, or remove it.',
       });
-    } else if (!ids.has(task.parentId)) {
+    } else if (!ids.has(parentKey)) {
       issues.push({
         severity: 'error',
         rule: 'orphan-parentId',
         path: `${path}.parentId`,
-        message: `parentId "${task.parentId}" does not match any task id. The task is dropped from both the task list and the timeline.`,
+        message:
+          `parentId "${task.parentId}" does not match any task id. Through apexgantt 3.19 the task is dropped from both the task list and the timeline; ` +
+          'from 3.20.0 it is attached to the root with a console warning. Either way the intended nesting is lost.',
       });
     }
   }
 
   if (task.dependency !== undefined) {
-    checkDependency(task.dependency, task.id, ids, `${path}.dependency`, issues);
+    checkDependency(task.dependency, idKey(task.id), ids, `${path}.dependency`, issues);
   }
 
   if (task.baseline !== undefined) {
@@ -240,11 +298,18 @@ function checkTask(task: unknown, i: number, ctx: Context, issues: ValidationIss
 /**
  * Which dates a task needs, as the library's task validation decides:
  * - segments supply both dates (the first segment's start, the last one's end);
- * - a row with no dates at all is a summary row, fine if it has children
- *   (or showSummaryBar), and a thrown error otherwise;
+ * - a row with no dates at all is a summary row, fine if other tasks name it as
+ *   parentId, and a thrown error otherwise (showSummaryBar does not save a
+ *   childless row: 3.20.0 throws 'Task "<id>" has no startTime and no
+ *   children', 3.19 "has no startTime/endTime and no children");
+ * - a parent with only one date throws through 3.19 and is drawn as a summary
+ *   bar over its children from 3.20.0, so it is a warning naming both;
+ * - a leaf with an endTime and no startTime throws on every version;
  * - a milestone needs startTime and draws at it, whatever endTime says;
- * - any other task with one date needs the other, or ApexGantt throws
- *   "Task must have an id, start, and end date".
+ * - a leaf with a startTime, no endTime and no type throws "Task must have an
+ *   id, start, and end date" through 3.19, and is drawn as a milestone from
+ *   3.20.0, so it is a warning that names both outcomes;
+ * - any other task with one date needs the other, or ApexGantt throws.
  * The milestone test is the exact lowercase string: the library compares
  * `"milestone" === type`, so "Milestone" is drawn as an ordinary task.
  */
@@ -261,6 +326,16 @@ function checkTaskDates(task: AnyObj, path: string, ctx: Context, issues: Valida
       path: `${path}.type`,
       message: `type "${type}" is not recognised: ApexGantt matches the lowercase "milestone", so this row is treated as an ordinary task.`,
       fix: 'Use type: "milestone".',
+    });
+  } else if (type !== undefined && type !== 'task' && !isMilestone) {
+    issues.push({
+      severity: 'warning',
+      rule: 'task-type-unknown',
+      path: `${path}.type`,
+      message:
+        `type ${JSON.stringify(type)} is not a task type: ApexGantt knows only "task" and "milestone". ` +
+        'There is no "summary" type; any task that other tasks name as parentId gets a summary bar automatically.',
+      fix: 'Remove type (or use "task" / "milestone").',
     });
   }
 
@@ -279,35 +354,68 @@ function checkTaskDates(task: AnyObj, path: string, ctx: Context, issues: Valida
   const hasSegments =
     Array.isArray(task.segments) &&
     task.segments.some((s) => isObject(s) && typeof s.start === 'string' && typeof s.end === 'string');
-  const isSummary = task.showSummaryBar === true || (typeof task.id === 'string' && ctx.parentIds.has(task.id));
+  const selfKey = idKey(task.id);
+  const hasChildren = selfKey !== undefined && ctx.parentIds.has(selfKey);
+  const parentWithOneDate = (field: 'startTime' | 'endTime'): ValidationIssue => ({
+    severity: 'warning',
+    rule: 'parent-single-date',
+    path: `${path}.${field}`,
+    message:
+      `This parent row has ${field === 'startTime' ? 'an endTime but no startTime' : 'a startTime but no endTime'}. ` +
+      'apexgantt 3.20.0+ draws it as a summary bar spanning its children; ' +
+      '3.19 and earlier throw "Task must have an id, start, and end date" and nothing renders.',
+    fix: 'Leave both dates out (the summary bar spans the children on every version), or give both.',
+  });
 
   if (!hasSegments) {
     if (!hasStart && !hasEnd) {
-      if (!isSummary) {
+      if (!hasChildren) {
         issues.push({
           severity: 'error',
           rule: 'task-missing-startTime',
           path: `${path}.startTime`,
-          message: 'This task has no startTime or endTime and no child tasks, so ApexGantt throws.',
+          message:
+            'This task has no startTime or endTime and no child tasks, so ApexGantt throws (showSummaryBar does not change that). ' +
+            `apexgantt 3.20.0 reports 'Task "<id>" has no startTime and no children. Provide dates or add child tasks.'`,
           fix: 'Add startTime and endTime, or segments. Only a parent row (one other tasks name as parentId) may omit both.',
         });
       }
     } else if (!hasStart) {
-      issues.push({
-        severity: 'error',
-        rule: 'task-missing-startTime',
-        path: `${path}.startTime`,
-        message: 'This task has an endTime but no startTime, so ApexGantt throws.',
-        fix: 'Add startTime.',
-      });
+      if (hasChildren) {
+        issues.push(parentWithOneDate('startTime'));
+      } else {
+        issues.push({
+          severity: 'error',
+          rule: 'task-missing-startTime',
+          path: `${path}.startTime`,
+          message:
+            'This task has an endTime but no startTime and no child tasks, so ApexGantt throws on every version ' +
+            `(3.20.0: 'Task "<id>" has no startTime and no children. Provide dates or add child tasks.').`,
+          fix: 'Add startTime.',
+        });
+      }
+    } else if (!hasEnd && !isMilestone && task.showSummaryBar !== true && type === undefined && hasChildren) {
+      issues.push(parentWithOneDate('endTime'));
     } else if (!hasEnd && !isMilestone && task.showSummaryBar !== true) {
-      issues.push({
-        severity: 'error',
-        rule: 'task-missing-endTime',
-        path: `${path}.endTime`,
-        message: 'This task has a startTime but no endTime, so ApexGantt throws "Task must have an id, start, and end date".',
-        fix: 'Add endTime, or set type: "milestone" for a single-date marker.',
-      });
+      if (type === undefined) {
+        issues.push({
+          severity: 'warning',
+          rule: 'milestone-inferred',
+          path: `${path}.endTime`,
+          message:
+            'This task has a startTime, no endTime and no type. apexgantt 3.20.0+ draws it as a milestone; ' +
+            '3.19 and earlier throw "Task must have an id, start, and end date" and nothing renders.',
+          fix: 'Say what you mean: set type: "milestone" for a single-date marker (works on every version), or add endTime.',
+        });
+      } else {
+        issues.push({
+          severity: 'error',
+          rule: 'task-missing-endTime',
+          path: `${path}.endTime`,
+          message: `This task has a startTime, no endTime and type ${JSON.stringify(type)}, so ApexGantt throws "Task must have an id, start, and end date" (on every version).`,
+          fix: 'Add endTime, or set type: "milestone" for a single-date marker.',
+        });
+      }
     }
   }
 
@@ -328,9 +436,9 @@ function checkTaskDates(task: AnyObj, path: string, ctx: Context, issues: Valida
 
 function checkDateFormat(value: string, path: string, ctx: Context, issues: ValidationIssue[]): void {
   // Rendering falls back to a lenient parse, so ISO dates still draw under the
-  // default 'MM-DD-YYYY'. Two things do not: the edit dialog parses strictly
-  // (its date fields come up empty) and edited or dragged dates are written
-  // back in inputDateFormat, mixing formats in the data.
+  // default 'MM-DD-YYYY'. Edited or dragged dates are still written back in
+  // inputDateFormat, mixing formats in the data. Through 3.19 the edit dialog
+  // also parses strictly (its date fields come up empty); 3.20.0 reads ISO there.
   if (ctx.isoReported || ctx.inputDateFormat !== 'MM-DD-YYYY' || !ISO_DATE_RE.test(value)) return;
   ctx.isoReported = true;
   issues.push({
@@ -339,14 +447,15 @@ function checkDateFormat(value: string, path: string, ctx: Context, issues: Vali
     path,
     message:
       `Dates such as "${value}" are ISO (YYYY-MM-DD) but inputDateFormat is the default "MM-DD-YYYY". ` +
-      'The bars still draw, but the edit dialog shows empty date fields and edited or dragged dates are written back as MM-DD-YYYY, mixing formats in your data.',
+      'The bars still draw, but edited or dragged dates are written back as MM-DD-YYYY, mixing formats in your data, ' +
+      'and through apexgantt 3.19 the edit dialog shows empty date fields.',
     fix: 'Set `inputDateFormat: "YYYY-MM-DD"` at the top level.',
   });
 }
 
 function checkDependency(
   dep: unknown,
-  selfId: unknown,
+  selfId: string | undefined,
   ids: Set<string>,
   path: string,
   issues: ValidationIssue[],
@@ -367,8 +476,9 @@ function checkDependency(
         fix: 'Rename `id` to `taskId`: `dependency: { taskId: "...", type: "FS", lag: 0 }`.',
       });
     }
-    if (typeof dep.taskId === 'string') {
-      targetId = dep.taskId;
+    if (idKey(dep.taskId) !== undefined) {
+      // Matched by value, so a numeric taskId finds the task whose id is that number.
+      targetId = idKey(dep.taskId);
     } else if (dep.taskId !== undefined) {
       issues.push({
         severity: 'error',
@@ -399,6 +509,17 @@ function checkDependency(
         rule: 'dependency-lag-not-number',
         path: `${path}.lag`,
         message: 'dependency.lag must be a number (days, may be negative for lead).',
+      });
+    }
+    if (dep.lagUnit !== undefined) {
+      issues.push({
+        severity: 'warning',
+        rule: 'dependency-lagUnit-no-effect',
+        path: `${path}.lagUnit`,
+        message:
+          'dependency.lagUnit has no effect: the library never reads it (deprecated in apexgantt 3.20.0). ' +
+          'Lag counts working days while a calendar is active and calendar days otherwise, and only feeds the critical path and the tooltip. Links never move tasks.',
+        fix: 'Remove lagUnit.',
       });
     }
   } else {
@@ -465,17 +586,59 @@ function checkBaseline(baseline: unknown, path: string, ctx: Context, issues: Va
 
 // --- Cycle detection ------------------------------------------------------
 
+/**
+ * A chain of parentIds that comes back to where it started (a under b under
+ * a). A task naming itself is reported by `parentId-self`. Through 3.19 such a
+ * chain overflows the stack; 3.20.0 breaks it at the first of its tasks in
+ * input order, logs a "makes a cycle of parents" warning and shows that task
+ * at the root.
+ */
+function checkParentCycles(series: unknown[], ctx: Context, issues: ValidationIssue[]): void {
+  const parentOf = new Map<string, string>();
+  series.forEach((task) => {
+    if (!isObject(task)) return;
+    const id = idKey(task.id);
+    const parent = idKey(task.parentId);
+    if (id !== undefined && parent !== undefined && parent !== id && ctx.ids.has(parent)) parentOf.set(id, parent);
+  });
+
+  const reported = new Set<string>();
+  for (const start of parentOf.keys()) {
+    const chain = [start];
+    let cursor = parentOf.get(start);
+    while (cursor !== undefined && !chain.includes(cursor)) {
+      chain.push(cursor);
+      cursor = parentOf.get(cursor);
+    }
+    if (cursor !== start) continue;
+    const key = [...chain].sort().join('|');
+    if (reported.has(key)) continue;
+    reported.add(key);
+    issues.push({
+      severity: 'error',
+      rule: 'parentId-cycle',
+      path: 'series',
+      message:
+        `parentId cycle: ${chain.concat(start).join(' under ')}. Through apexgantt 3.19 this overflows the stack and nothing renders; ` +
+        'from 3.20.0 the cycle is broken at its first task in the array, which logs a "makes a cycle of parents" warning and is shown at the root.',
+      fix: 'Remove or redirect one of the parentIds so the chain reaches a root task.',
+    });
+  }
+}
+
 function checkDependencyCycles(series: unknown[], issues: ValidationIssue[]): void {
   // Build adjacency from each task to its predecessor (the task it depends on).
   const graph = new Map<string, string[]>();
   series.forEach((task) => {
-    if (!isObject(task) || typeof task.id !== 'string') return;
+    if (!isObject(task)) return;
+    const id = idKey(task.id);
+    if (id === undefined) return;
     const preds: string[] = [];
     const dep = task.dependency;
-    const target = typeof dep === 'string' ? dep : isObject(dep) && typeof dep.taskId === 'string' ? dep.taskId : undefined;
+    const target = typeof dep === 'string' ? dep : isObject(dep) ? idKey(dep.taskId) : undefined;
     // A self-dependency is reported once, by its own rule.
-    if (target !== undefined && target !== task.id) preds.push(target);
-    graph.set(task.id, preds);
+    if (target !== undefined && target !== id) preds.push(target);
+    graph.set(id, preds);
   });
 
   const WHITE = 0;

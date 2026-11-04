@@ -4,7 +4,9 @@ import { generateGanttConfig } from '../src/generateConfig.js';
 describe('generateGanttConfig', () => {
   it('builds a minimal config with placeholder tasks when none are given', () => {
     const config = generateGanttConfig({});
-    expect(config.chart).toMatchObject({ height: 600 });
+    // ApexGantt options are flat: height is top level, there is no `chart` object.
+    expect(config.height).toBe(600);
+    expect(config.chart).toBeUndefined();
     expect(config.inputDateFormat).toBe('MM-DD-YYYY');
     const series = config.series as Array<{ id: string; name: string; startTime: string }>;
     expect(series.length).toBeGreaterThan(0);
@@ -40,9 +42,13 @@ describe('generateGanttConfig', () => {
     expect(config.series).toBe(tasks);
   });
 
-  it('attaches title only when provided', () => {
-    expect(generateGanttConfig({}).title).toBeUndefined();
-    expect(generateGanttConfig({ title: 'Q1 plan' }).title).toEqual({ text: 'Q1 plan' });
+  it('emits the requested height at the top level', () => {
+    expect(generateGanttConfig({ height: 420 }).height).toBe(420);
+  });
+
+  it('never emits options ApexGantt does not have (no chart object, no title)', () => {
+    const config = generateGanttConfig({ height: 420, enableSelection: true });
+    expect(Object.keys(config).sort()).toEqual(['enableSelection', 'height', 'inputDateFormat', 'series']);
   });
 
   it('honors enableCriticalPath, enableSelection, and baseline flags', () => {

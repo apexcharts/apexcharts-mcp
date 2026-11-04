@@ -4,9 +4,10 @@
 export interface GenerateGanttConfigInput {
   /** Task array (`series`). If omitted, a placeholder phase + tasks + milestone is generated. */
   tasks?: unknown;
-  /** Optional chart title. */
-  title?: string;
-  /** Chart height in px (default 600). */
+  /**
+   * Chart height in px, emitted as the top-level `height` option (default 600
+   * here; the library's own default is 500px).
+   */
   height?: number;
   /**
    * dayjs format used to parse every `startTime` / `endTime` / `baseline.start|end` string.
@@ -25,8 +26,11 @@ export interface GenerateGanttConfigInput {
  * Build a minimal valid ApexGantt options object.
  *
  * When `tasks` is not supplied, a small placeholder schedule is generated that
- * exercises hierarchy (`parentId`), a dependency, and a milestone — so the
+ * exercises hierarchy (`parentId`), a dependency, and a milestone, so the
  * returned config renders something visibly useful as-is.
+ *
+ * ApexGantt options are flat: `height` is top level (there is no `chart`
+ * object) and there is no title option.
  */
 export function generateGanttConfig(
   input: GenerateGanttConfigInput,
@@ -35,14 +39,10 @@ export function generateGanttConfig(
   const inputDateFormat = input.inputDateFormat ?? 'MM-DD-YYYY';
 
   const config: Record<string, unknown> = {
-    chart: { height },
+    height,
     inputDateFormat,
     series: input.tasks ?? defaultTasks(inputDateFormat),
   };
-
-  if (input.title) {
-    config.title = { text: input.title };
-  }
 
   if (input.enableCriticalPath) {
     config.enableCriticalPath = true;
@@ -73,7 +73,7 @@ function defaultTasks(format: string): unknown[] {
   return [
     {
       id: 'phase1',
-      name: 'Phase 1 — Design',
+      name: 'Phase 1: Design',
       startTime: d('01', '01', '2026'),
       endTime: d('01', '31', '2026'),
     },
@@ -96,7 +96,7 @@ function defaultTasks(format: string): unknown[] {
     },
     {
       id: 'phase2',
-      name: 'Phase 2 — Build',
+      name: 'Phase 2: Build',
       startTime: d('02', '01', '2026'),
       endTime: d('03', '15', '2026'),
     },
@@ -110,6 +110,8 @@ function defaultTasks(format: string): unknown[] {
       dependency: 't1.2',
     },
     {
+      // Explicit type: 3.20.0+ would infer a milestone from the missing
+      // endTime, but 3.19 and earlier throw without it.
       id: 'launch',
       name: 'Launch',
       startTime: d('03', '15', '2026'),

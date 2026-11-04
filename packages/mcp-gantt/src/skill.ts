@@ -10,30 +10,32 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
   {
     file: 'SKILL.md',
     description:
-      'Top-level ApexGantt skill index: task data format, dependency types (FS/SS/FF/SF), view modes, update lifecycle, and framework integration. Read this first.',
+      'Top-level ApexGantt skill index: critical rules, task data format, dependency types (FS/SS/FF/SF; links never move tasks), continuous zoom via `pixelsPerDay`, the update() / updateTask() lifecycle, the public API (including the 3.20.0 getTask / getTasks / getDependencies / expandTask / collapseTask, and saving links alongside tasks), events, licensing (Premium and above, no free tier), and what changed in 3.20.0. Read this first.',
   },
   {
     file: 'data-format.md',
     description:
-      'Task data shape: id, start/end, progress, dependencies, custom fields, and date parsing rules.',
+      'Task data shape: id, startTime/endTime, progress, milestones (explicit `type: "milestone"`; inferred from a missing endTime from 3.20.0), hierarchy and summary bars (parents with no or one date, parentId cycles), which rows `parsing` keeps, split segments, baseline, assignees, the `parsing` map, and date parsing rules (`inputDateFormat`, default MM-DD-YYYY).',
   },
   {
     file: 'dependencies.md',
     description:
-      'Linking tasks with FS/SS/FF/SF dependency types, critical-path computation, and baseline-vs-actual rendering.',
+      'Linking tasks with FS/SS/FF/SF dependency types (drawn and analysed, never moving tasks), lag (working days with a calendar; `lagUnit` has no effect), critical-path computation, drawing links with `dependencies.editable`, what `addDependency()` rejects (3.20.0 throws on self, cycle and summary-descendant links), and saving links with `getDependencies()`.',
   },
   {
     file: 'columns-and-toolbar.md',
-    description: 'Left-pane column configuration, custom toolbar items, and selection behavior.',
+    description:
+      'Left-pane column configuration (default columns Task Name, Start, Duration, Progress), the 13 built-in column keys and cell renderers, custom toolbar items, and the `parsing` map.',
   },
   {
     file: 'events.md',
-    description: 'Lifecycle events (taskClick, taskDrag, viewChange, etc.) and how to wire them up.',
+    description:
+      'Container events (taskUpdate / taskUpdateSuccess with the 3.20.0 `source` field, taskDragged, taskResized, taskProgressChanged, selectionChange, dependency events), drag and resize, the edit dialog, selection, and saving edits to a backend with silent rollbacks.',
   },
   {
     file: 'editing.md',
     description:
-      'Editing (3.12.0+): the CRUD API (addTask / updateTask / removeTask and friends) with its container events and synchronous veto hooks, undo/redo via `history`, the user-facing interaction toggles, the working `calendar`, and sub-day scheduling through `snapUnit` / `snapValue`. Every mutating call is recorded in the undo history.',
+      'Editing (3.12.0+): the CRUD API (addTask / updateTask / deleteTask / moveTask and the dependency methods; 3.20.0 adds getTask / getTasks / getDependencies / expandTask / collapseTask and `updateTask(id, patch, { silent })`), saving and reloading links, synchronous one-object veto hooks, undo/redo via `history`, the user-facing interaction toggles and keyboard editing, the working `calendar`, and sub-day scheduling through `snapUnit` / `snapValue`. Every mutating call is recorded in the undo history.',
   },
   {
     file: 'grid.md',
@@ -43,11 +45,12 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
   {
     file: 'interaction.md',
     description:
-      'Opt-in interaction features (3.13.0 wave and 3.15.0): UI-state persistence as a versioned, SSR-safe `GanttUiState` snapshot (zoom, scroll, collapse, selection, sort, filter, column widths and order), draw-to-create via `enableDrawTask`, scroll-to-task, and SVG / PNG / PDF export. All additive; existing charts are unaffected unless enabled.',
+      'Opt-in interaction features (3.13.0 wave and 3.15.0): UI-state persistence as a versioned, SSR-safe `GanttUiState` snapshot (zoom, scroll, collapse, selection, sort, filter, column widths and order), draw-to-create via `enableDrawTask`, scroll-to-task (expands collapsed ancestors from 3.20.0, `{ expand: false }` to opt out), and SVG / PNG / PDF export. All additive; existing charts are unaffected unless enabled.',
   },
   {
     file: 'framework-wrappers.md',
-    description: 'React, Vue 3, and Angular integration (props, refs, update patterns), and web components (shadow DOM).',
+    description:
+      'React, Vue 3, and Angular wrappers (the `tasks` and `options` props, handlers that receive the event detail, refs and `getInstance()`, the license helper), and web components (shadow DOM).',
   },
 ];
 
