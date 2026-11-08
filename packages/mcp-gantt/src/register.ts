@@ -74,7 +74,7 @@ export function registerGanttTools(server: McpServer): void {
         'ISO dates with the default MM-DD-YYYY format, ' +
         'dependency object using `id` instead of `taskId`, unknown dependency target, ' +
         'self-dependency, invalid dependency type, `lagUnit` (no effect), dependency cycles, baseline missing start/end, ' +
-        '`calendar.workingWeekdays` naming no weekday). ' +
+        '`calendar.workingWeekdays` naming no weekday, tokens / designSystem that are not booleans). ' +
         'Returns structured issues with stable rule ids.',
       inputSchema: {
         config: z.record(z.string(), z.unknown()).describe('The ApexGantt options object to validate.'),

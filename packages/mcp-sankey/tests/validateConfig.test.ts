@@ -199,3 +199,18 @@ describe('validateSankeyConfig — edges', () => {
     expect(result.issues).toEqual([]);
   });
 });
+
+describe('validateSankeyConfig design-system switches', () => {
+  const switchIssues = (config: Record<string, unknown>) =>
+    validateSankeyConfig(config).issues.filter((i) => i.rule === 'design-switch-not-boolean');
+
+  it('accepts boolean switches', () => {
+    expect(switchIssues({ options: { designSystem: false, tokens: true }, data: okData })).toEqual([]);
+  });
+
+  it('warns when a switch is not a boolean, since only false turns it off', () => {
+    const issues = switchIssues({ options: { designSystem: 'false', tokens: 'off' }, data: okData });
+    expect(issues.map((i) => i.path).sort()).toEqual(['options.designSystem', 'options.tokens']);
+    expect(issues.every((i) => i.severity === 'warning')).toBe(true);
+  });
+});

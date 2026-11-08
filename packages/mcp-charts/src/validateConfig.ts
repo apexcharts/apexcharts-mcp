@@ -1,3 +1,4 @@
+import { checkDesignSwitches } from '@apexcharts-mcp/core';
 import {
   bundleConsequence,
   bundleRemedy,
@@ -121,6 +122,11 @@ export function validateChartConfig(config: unknown): ValidationResult {
   checkFeatureImports(config, issues);
   checkOptionKeys(config, issues);
   checkAxisBounds(config, issues);
+  if (isObject(config.theme)) {
+    // theme.tokens and theme.designSystem (the latter read only while
+    // `apexcharts/features/ignite-ui` is loaded).
+    issues.push(...checkDesignSwitches(config.theme, 'theme'));
+  }
 
   return finalize(issues);
 }

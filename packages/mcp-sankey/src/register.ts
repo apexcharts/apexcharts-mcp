@@ -59,7 +59,8 @@ export function registerSankeyTools(server: McpServer): void {
       description:
         'Check an ApexSankey config against what the library does with it (unique node ids, ' +
         'edges reference real nodes, no negative values, no self-loops, no parallel edges ' +
-        'that collapse into one, nodes without edges). Cycles are allowed: they render as ' +
+        'that collapse into one, nodes without edges, options.tokens / options.designSystem ' +
+        'that are not booleans). Cycles are allowed: they render as ' +
         'dashed loops. Accepts the wrapped `{ options, data }` shape from generate_config, ' +
         'the raw render payload `{ nodes, edges }`, or an ApexSankey.compare `{ before, after }` config.',
       inputSchema: {

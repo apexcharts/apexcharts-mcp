@@ -1,3 +1,5 @@
+import { checkDesignSwitches } from '@apexcharts-mcp/core';
+
 export type Severity = 'error' | 'warning';
 
 export interface ValidationIssue {
@@ -50,6 +52,7 @@ function isObject(v: unknown): v is AnyObj {
  *   - column.type must be one of apex-grid's column types
  *   - sort/filter must be boolean or object (per-column opt-in)
  *   - row shape must be an object
+ *   - designSystem / tokens grid properties, when present, must be booleans
  */
 export function validateGridConfig(config: unknown): ValidationResult {
   const issues: ValidationIssue[] = [];
@@ -63,6 +66,11 @@ export function validateGridConfig(config: unknown): ValidationResult {
     });
     return finalize(issues);
   }
+
+  // The grid's designSystem / tokens properties (the design-system="off" /
+  // tokens="off" attributes in markup). As JS properties only a falsy value
+  // turns them off, so a string such as "false" leaves the switch on.
+  issues.push(...checkDesignSwitches(config, ''));
 
   const columns = config.columns;
   const data = config.data;

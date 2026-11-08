@@ -80,7 +80,8 @@ export function registerTreeTools(server: McpServer): void {
         'Check an ApexTree config against what the library does with it: root is a NestedNode, ' +
         'every node has an id and a label, children (when present) is an array, ids unique ' +
         'across the whole tree, valid direction/edgeStyle/edgeColorMode/theme values, ' +
-        'enableSelection is "single"|"multi"|false (NOT boolean true), and a warning ' +
+        'enableSelection is "single"|"multi"|false (NOT boolean true), boolean ' +
+        'tokens / designSystem, and a warning ' +
         'when contentKey is "data" but a node has no `data` payload. Accepts both the ' +
         'wrapped `{ options, data }` shape and a bare root node.',
       inputSchema: {

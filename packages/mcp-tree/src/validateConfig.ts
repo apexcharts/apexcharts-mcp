@@ -1,3 +1,5 @@
+import { checkDesignSwitches } from '@apexcharts-mcp/core';
+
 export type Severity = 'error' | 'warning';
 
 export interface ValidationIssue {
@@ -87,6 +89,10 @@ function finalize(issues: ValidationIssue[]): ValidationResult {
 
 function checkOptions(options: AnyObj, basePath: string, issues: ValidationIssue[]): void {
   const px = (k: string) => (basePath ? `${basePath}.${k}` : k);
+
+  // Top-level tokens / designSystem (the latter read only while
+  // `apextree/ignite-ui` is loaded).
+  issues.push(...checkDesignSwitches(options, basePath));
 
   if (options.direction !== undefined) {
     if (typeof options.direction !== 'string' || !VALID_DIRECTIONS.has(options.direction)) {

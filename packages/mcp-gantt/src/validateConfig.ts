@@ -1,3 +1,5 @@
+import { checkDesignSwitches } from '@apexcharts-mcp/core';
+
 export type Severity = 'error' | 'warning';
 
 export interface ValidationIssue {
@@ -67,6 +69,10 @@ export function validateGanttConfig(config: unknown): ValidationResult {
     });
     return finalize(issues);
   }
+
+  // Top-level tokens / designSystem (the latter read only while
+  // `apexgantt/ignite-ui` is loaded).
+  issues.push(...checkDesignSwitches(config, ''));
 
   const series = config.series;
   if (series === undefined) {

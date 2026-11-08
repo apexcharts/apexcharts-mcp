@@ -2,7 +2,7 @@
  * Input shape for apexsankey_generate_config.
  */
 export interface GenerateSankeyConfigInput {
-  /** Array of node objects `{ id, title, color? }`. If omitted, a 4-node placeholder is generated. */
+  /** Array of node objects `{ id, title, color? }`. If omitted, a 5-node placeholder is generated with no colours, so the library palette (or a design system's) applies. */
   nodes?: unknown;
   /** Array of edge objects `{ source, target, value, type }`. If omitted, a placeholder flow is generated. */
   edges?: unknown;
@@ -51,11 +51,11 @@ export function generateSankeyConfig(
 
 function defaultNodes(): unknown[] {
   return [
-    { id: 'source-a', title: 'Source A', color: '#4F46E5' },
-    { id: 'source-b', title: 'Source B', color: '#0EA5E9' },
-    { id: 'hub', title: 'Hub', color: '#10B981' },
-    { id: 'sink-x', title: 'Sink X', color: '#F59E0B' },
-    { id: 'sink-y', title: 'Sink Y', color: '#EF4444' },
+    { id: 'source-a', title: 'Source A' },
+    { id: 'source-b', title: 'Source B' },
+    { id: 'hub', title: 'Hub' },
+    { id: 'sink-x', title: 'Sink X' },
+    { id: 'sink-y', title: 'Sink Y' },
   ];
 }
 

@@ -35,7 +35,12 @@ export function registerStockTools(server: McpServer): void {
           .positive()
           .optional()
           .describe('Chart height in px (default 600).'),
-        theme: z.enum(['light', 'dark']).optional().describe('Theme mode (default "light").'),
+        theme: z
+          .enum(['light', 'dark'])
+          .optional()
+          .describe(
+            'Theme mode. Omit to leave theme out of the config: the library default (light) applies and an Ignite UI add-on can pick its own light or dark variant.',
+          ),
         indicators: z
           .union([z.array(z.string()), z.record(z.string(), z.unknown())])
           .optional()
@@ -61,7 +66,8 @@ export function registerStockTools(server: McpServer): void {
         'Check an ApexStock options object against the rules in apexstock-skill ' +
         '(missing series/data, flat o/h/l/c keys instead of a y:[o,h,l,c] array, ' +
         'malformed or inconsistent OHLC tuples, missing/invalid x, non-ascending ' +
-        'data, invalid theme.mode, and unknown indicator keys). Returns structured ' +
+        'data, invalid theme.mode, theme.tokens / theme.designSystem that are not ' +
+        'booleans, and unknown indicator keys). Returns structured ' +
         'issues with stable rule ids.',
       inputSchema: {
         config: z.record(z.string(), z.unknown()).describe('The ApexStock options object to validate.'),

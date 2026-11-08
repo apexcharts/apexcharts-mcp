@@ -130,3 +130,18 @@ describe('validateGridConfig — data rows', () => {
     expect(result.errors.some((e) => e.rule === 'row-not-object')).toBe(true);
   });
 });
+
+describe('validateGridConfig design-system switches', () => {
+  const switchIssues = (config: Record<string, unknown>) =>
+    validateGridConfig(config).issues.filter((i) => i.rule === 'design-switch-not-boolean');
+
+  it('accepts boolean switches', () => {
+    expect(switchIssues({ ...okConfig, designSystem: false, tokens: true })).toEqual([]);
+  });
+
+  it('warns when a switch is not a boolean, since a string leaves it on', () => {
+    const issues = switchIssues({ ...okConfig, designSystem: 'false', tokens: 'off' });
+    expect(issues.map((i) => i.path).sort()).toEqual(['designSystem', 'tokens']);
+    expect(issues.every((i) => i.severity === 'warning')).toBe(true);
+  });
+});

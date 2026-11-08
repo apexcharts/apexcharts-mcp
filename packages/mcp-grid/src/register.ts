@@ -55,7 +55,7 @@ export function registerGridTools(server: McpServer): void {
         'columns/data required and array-shaped, every column.key must be a real key of ' +
         'the data rows, column.key unique, type is one of apex-grid\'s column types ' +
         '(string, number, boolean, date, currency, select and the other presentation types), ' +
-        'sort/filter is boolean or config object. Returns structured issues with stable rule ids.',
+        'sort/filter is boolean or config object, designSystem / tokens properties (if passed) are booleans. Returns structured issues with stable rule ids.',
       inputSchema: {
         config: z
           .record(z.string(), z.unknown())

@@ -5,7 +5,9 @@ describe('generateStockConfig', () => {
   it('builds a minimal config with placeholder candles when none are given', () => {
     const config = generateStockConfig({});
     expect(config.chart).toMatchObject({ height: 600 });
-    expect(config.theme).toEqual({ mode: 'light' });
+    // No theme unless asked: a pinned mode would override the library default
+    // and a design-system add-on's light or dark variant.
+    expect(config.theme).toBeUndefined();
 
     const series = config.series as Array<{ name: string; data: unknown[] }>;
     expect(series).toHaveLength(1);

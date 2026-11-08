@@ -925,3 +925,18 @@ describe('validateChartConfig — result shape', () => {
     expect(r.errors.length).toBeGreaterThan(0);
   });
 });
+
+describe('validateChartConfig design-system switches', () => {
+  const switchIssues = (config: Record<string, unknown>) =>
+    validateChartConfig(config).issues.filter((i) => i.rule === 'design-switch-not-boolean');
+
+  it('accepts boolean switches', () => {
+    expect(switchIssues({ chart: { type: 'line' }, series: [{ data: [1, 2] }], theme: { tokens: false, designSystem: true } })).toEqual([]);
+  });
+
+  it('warns when a switch is not a boolean, since only false turns it off', () => {
+    const issues = switchIssues({ chart: { type: 'line' }, series: [{ data: [1, 2] }], theme: { tokens: 'false', designSystem: 0 } });
+    expect(issues.map((i) => i.path).sort()).toEqual(['theme.designSystem', 'theme.tokens']);
+    expect(issues.every((i) => i.severity === 'warning')).toBe(true);
+  });
+});

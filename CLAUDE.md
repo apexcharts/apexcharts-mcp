@@ -48,7 +48,7 @@ packages/
       register.ts                   # the four apexcharts_* registerTool calls
       chartCatalog.ts               # single source of truth for the 30 supported chart types (incl. v6 violin/funnel/pyramid/gauge, v6.6/6.7 unit/waffle/sunburst, v6.9 histogram, v7.1 waterfall/dumbbell/streamgraph/raincloud, v7.6 icicle, and the v7.9 column synonym of bar) and each Tier 2 type's add-on import (`bundle`)
       generateConfig.ts             # pure function: chart type + options → ApexCharts options object
-      validateConfig.ts             # structural/semantic validator (40 rules)
+      validateConfig.ts             # structural/semantic validator (41 rules)
       skill.ts                      # REFERENCE_INDEX + thin wrapper over core's reader
       apexcharts-skill.d.ts         # ambient module decl (skill package ships no types)
     tests/                          # vitest tests for the above

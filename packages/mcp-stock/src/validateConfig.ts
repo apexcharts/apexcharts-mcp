@@ -1,3 +1,4 @@
+import { checkDesignSwitches } from '@apexcharts-mcp/core';
 import { ALL_INDICATOR_KEYS, isKnownIndicator } from './indicators.js';
 
 export type Severity = 'error' | 'warning';
@@ -267,6 +268,9 @@ function checkTheme(theme: unknown, issues: ValidationIssue[]): void {
       message: `theme.mode must be "light" or "dark". Got ${JSON.stringify(mode)}.`,
     });
   }
+  // theme.designSystem is read only while `apexstock/ignite-ui` is loaded;
+  // theme.tokens is the same switch ApexCharts reads.
+  issues.push(...checkDesignSwitches(theme, 'theme'));
 }
 
 // --- Indicators -----------------------------------------------------------

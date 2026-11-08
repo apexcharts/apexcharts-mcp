@@ -1,3 +1,5 @@
+import { checkDesignSwitches } from '@apexcharts-mcp/core';
+
 export type Severity = 'error' | 'warning';
 
 export interface ValidationIssue {
@@ -48,6 +50,9 @@ export function validateSankeyConfig(config: unknown): ValidationResult {
 
   const options = isObject(config.options) ? config.options : {};
   const isChord = options.type === 'chord';
+  // Top-level tokens / designSystem (the latter read only while
+  // `apexsankey/ignite-ui` is loaded).
+  issues.push(...checkDesignSwitches(options, 'options'));
 
   if (isObject(config.before) && isObject(config.after)) {
     checkGraph(config.before, 'before', isChord, issues);

@@ -404,3 +404,18 @@ describe('validateGanttConfig — baseline', () => {
     expect(result.errors.some((e) => e.rule === 'baseline-missing-end')).toBe(true);
   });
 });
+
+describe('validateGanttConfig design-system switches', () => {
+  const switchIssues = (config: Record<string, unknown>) =>
+    validateGanttConfig(config).issues.filter((i) => i.rule === 'design-switch-not-boolean');
+
+  it('accepts boolean switches', () => {
+    expect(switchIssues({ series: [ok], designSystem: false, tokens: true })).toEqual([]);
+  });
+
+  it('warns when a switch is not a boolean, since only false turns it off', () => {
+    const issues = switchIssues({ series: [ok], designSystem: 'false', tokens: 'off' });
+    expect(issues.map((i) => i.path).sort()).toEqual(['designSystem', 'tokens']);
+    expect(issues.every((i) => i.severity === 'warning')).toBe(true);
+  });
+});

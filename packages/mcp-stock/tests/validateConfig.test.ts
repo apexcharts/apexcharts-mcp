@@ -186,3 +186,18 @@ describe('validateStockConfig — indicators', () => {
     expect(result.errors.map((e) => e.rule)).toContain('indicators-wrong-shape');
   });
 });
+
+describe('validateStockConfig design-system switches', () => {
+  const switchIssues = (config: Record<string, unknown>) =>
+    validateStockConfig(config).issues.filter((i) => i.rule === 'design-switch-not-boolean');
+
+  it('accepts boolean switches', () => {
+    expect(switchIssues({ ...okConfig, theme: { mode: 'dark', designSystem: false, tokens: true } })).toEqual([]);
+  });
+
+  it('warns when a switch is not a boolean, since only false turns it off', () => {
+    const issues = switchIssues({ ...okConfig, theme: { designSystem: 'false', tokens: null } });
+    expect(issues.map((i) => i.path).sort()).toEqual(['theme.designSystem', 'theme.tokens']);
+    expect(issues.every((i) => i.severity === 'warning')).toBe(true);
+  });
+});

@@ -84,7 +84,8 @@ export function registerChartsTools(server: McpServer): void {
       description:
         'Check an ApexCharts options object against the data-format rules and known ' +
         'pitfalls (wrong series shape for chart type, radialBar values outside the min/max domain, ' +
-        'undefined data points, conflicting tooltip flags, hex colors missing #, etc.). ' +
+        'undefined data points, conflicting tooltip flags, hex colors missing #, ' +
+        'theme.tokens / theme.designSystem that are not booleans, etc.). ' +
         'Returns structured issues so the caller can fix them. Returns ok: true when there ' +
         'are no errors (warnings still allowed).',
       inputSchema: {

@@ -14,7 +14,11 @@ export interface GenerateStockConfigInput {
   title?: string;
   /** Chart height in px (default 600). */
   height?: number;
-  /** Theme mode (default "light"). */
+  /**
+   * Theme mode. Omitted when unset, so the library default applies and an
+   * installed design-system add-on can still pick its own light or dark
+   * variant; setting it pins that mode.
+   */
   theme?: 'light' | 'dark';
   /**
    * Indicators to enable, as a list of keys (e.g. `["moving average", "rsi"]`)
@@ -39,13 +43,15 @@ export function generateStockConfig(
 ): Record<string, unknown> {
   const height = input.height ?? 600;
   const name = input.name ?? 'Price';
-  const mode = input.theme ?? 'light';
 
   const config: Record<string, unknown> = {
     chart: { height },
     series: [{ name, data: input.data ?? defaultCandles() }],
-    theme: { mode },
   };
+
+  if (input.theme !== undefined) {
+    config.theme = { mode: input.theme };
+  }
 
   if (input.title) {
     config.title = { text: input.title };

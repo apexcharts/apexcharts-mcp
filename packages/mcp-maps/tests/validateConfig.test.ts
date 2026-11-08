@@ -410,3 +410,18 @@ describe('validateMapsConfig', () => {
     expect(result.errors.map((i) => i.path)).toContain('series[0].data[0].from');
   });
 });
+
+describe('validateMapsConfig design-system switches', () => {
+  const switchIssues = (config: Record<string, unknown>) =>
+    validateMapsConfig(config).issues.filter((i) => i.rule === 'design-switch-not-boolean');
+
+  it('accepts boolean switches', () => {
+    expect(switchIssues({ geo: { map: 'world/countries' }, series: [{ type: 'choropleth', data: [] }], theme: { designSystem: false, tokens: true } })).toEqual([]);
+  });
+
+  it('warns when a switch is not a boolean, since only false turns it off', () => {
+    const issues = switchIssues({ geo: { map: 'world/countries' }, series: [{ type: 'choropleth', data: [] }], theme: { designSystem: 'off', tokens: 'no' } });
+    expect(issues.map((i) => i.path).sort()).toEqual(['theme.designSystem', 'theme.tokens']);
+    expect(issues.every((i) => i.severity === 'warning')).toBe(true);
+  });
+});

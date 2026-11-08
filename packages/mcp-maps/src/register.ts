@@ -62,7 +62,12 @@ export function registerMapsTools(server: McpServer): void {
             'Projection name or spec object. Omit to use the pack default (recommended: ' +
               'packs like "us" already pick albersUsa).',
           ),
-        themeMode: z.enum(['light', 'dark', 'auto']).optional().describe('Theme mode.'),
+        themeMode: z
+          .enum(['light', 'dark', 'auto'])
+          .optional()
+          .describe(
+            'Theme mode. Omit to leave theme out of the config, so the library default applies and an Ignite UI add-on can pick its own light or dark variant.',
+          ),
       },
     },
     async (input) => {
@@ -85,7 +90,8 @@ export function registerMapsTools(server: McpServer): void {
         'arc from/to endpoints, line paths, bubble/marker coordinates or something to join on, ' +
         'hexbin point positions and aggregates (a hexbin has no joinBy), pixel shape / grid / lattice / spacing, ' +
         '[lon, lat] ordering, joinBy shape, null (not undefined) for missing ' +
-        'values, and known scale / projection / palette names. Returns structured issues ' +
+        'values, known scale / projection / palette names, and boolean ' +
+        'theme.tokens / theme.designSystem. Returns structured issues ' +
         'with stable rule ids, severity, path, and a fix when there is a one-shot remedy.',
       inputSchema: {
         config: z.record(z.string(), z.unknown()).describe('The ApexMaps options object to validate.'),

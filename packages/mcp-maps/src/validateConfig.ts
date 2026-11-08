@@ -1,3 +1,4 @@
+import { checkDesignSwitches } from '@apexcharts-mcp/core';
 import { BUILT_IN_MAPS, HEX_LAYOUT_MAPS } from './mapCatalog.js';
 
 export type Severity = 'error' | 'warning';
@@ -356,6 +357,8 @@ function checkTheme(config: AnyObj, issues: ValidationIssue[]): void {
   if (typeof theme.palette === 'string') {
     checkPaletteName(theme.palette, 'theme.palette', issues);
   }
+  // theme.designSystem is read only while `apexmaps/ignite-ui` is loaded.
+  issues.push(...checkDesignSwitches(theme, 'theme'));
 }
 
 function checkInteraction(config: AnyObj, issues: ValidationIssue[]): void {
