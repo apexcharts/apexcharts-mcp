@@ -48,6 +48,11 @@ export const REFERENCE_INDEX: ReferenceEntry[] = [
       'Opt-in interaction features (3.13.0 wave and 3.15.0): UI-state persistence as a versioned, SSR-safe `GanttUiState` snapshot (zoom, scroll, collapse, selection, sort, filter, column widths and order), draw-to-create via `enableDrawTask`, scroll-to-task (expands collapsed ancestors from 3.20.0, `{ expand: false }` to opt out), and SVG / PNG / PDF export. All additive; existing charts are unaffected unless enabled.',
   },
   {
+    file: 'localization.md',
+    description:
+      'Localization (3.22.0): locale packs (`locale.pack`, the draft Japanese pack `apexgantt/locales/ja`) and `locale.tag`, the display date formats (`displayDateFormat`, `crosshairFormat`, `timelineHeaderFormat`), the `messages` object with `DEFAULT_GANTT_MESSAGES` and its template strings, IME input, `calendar.weekStart` and `calendar.fiscalYearStartMonth` and their precedence over the pack and the date locale, and escaping data in custom tooltip HTML with `escapeHtml`.',
+  },
+  {
     file: 'framework-wrappers.md',
     description:
       'React, Vue 3, and Angular wrappers (the `tasks` and `options` props, handlers that receive the event detail, refs and `getInstance()`, the license helper), and web components (shadow DOM).',
