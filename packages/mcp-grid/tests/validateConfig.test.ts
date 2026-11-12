@@ -76,7 +76,7 @@ describe('validateGridConfig — columns', () => {
   // apex-grid 3.x has a real 'date' type and ten presentation types. An older
   // rule called 'date' a mistake and rejected configs the grid renders.
   it('accepts every apex-grid column type, date included', () => {
-    const types = ['string', 'number', 'boolean', 'select', 'rating', 'date', 'image', 'currency', 'avatar', 'badge', 'progress', 'sparkline', 'status'];
+    const types = ['string', 'number', 'boolean', 'select', 'rating', 'date', 'image', 'currency', 'avatar', 'badge', 'progress', 'sparkline', 'chart', 'status'];
     const result = validateGridConfig({
       columns: types.map((type) => ({ key: 'v', type })),
       data: [{ v: 1 }],
@@ -143,5 +143,85 @@ describe('validateGridConfig design-system switches', () => {
     const issues = switchIssues({ ...okConfig, designSystem: 'false', tokens: 'off' });
     expect(issues.map((i) => i.path).sort()).toEqual(['designSystem', 'tokens']);
     expect(issues.every((i) => i.severity === 'warning')).toBe(true);
+  });
+});
+
+describe("validateGridConfig: type 'chart' (apex-grid 4.1.0)", () => {
+  const rows = [{ name: 'A', trend: [1, 3, 2], share: [3, 5, 2] }];
+  const rules = (config: unknown) => validateGridConfig(config).issues.map((i) => i.rule);
+
+  it('accepts a chart column with a number[] and with { data } series', () => {
+    const r = validateGridConfig({
+      columns: [
+        { key: 'name' },
+        { key: 'trend', type: 'chart', chart: { type: 'area', height: 28, width: '100%', options: { stroke: { width: 2 } } } },
+      ],
+      data: [...rows, { name: 'B', trend: [{ name: 'X', data: [1, 2] }], share: [1] }],
+    });
+    expect(r.ok).toBe(true);
+    expect(r.warnings).toEqual([]);
+  });
+
+  it('accepts null gaps and a donut from a number[]', () => {
+    const r = validateGridConfig({
+      columns: [
+        { key: 'trend', type: 'chart' },
+        { key: 'share', type: 'chart', chart: { type: 'donut' } },
+      ],
+      data: [{ trend: [1, null, 3], share: [3, 5, 2] }],
+    });
+    expect(r.issues).toEqual([]);
+  });
+
+  it('flags a chart option of the wrong shape', () => {
+    expect(rules({ columns: [{ key: 'trend', type: 'chart', chart: 'area' }], data: rows })).toContain('chart-option-wrong-shape');
+    const r = rules({
+      columns: [{ key: 'trend', type: 'chart', chart: { type: 3, height: '28px', width: true, options: [] } }],
+      data: rows,
+    });
+    expect(r).toEqual(expect.arrayContaining(['chart-type-not-string', 'chart-height-not-number', 'chart-width-wrong-type', 'chart-options-wrong-shape']));
+  });
+
+  it('warns that chart is ignored on another column type', () => {
+    expect(rules({ columns: [{ key: 'trend', type: 'sparkline', chart: { type: 'bar' } }], data: rows })).toContain('chart-option-ignored');
+  });
+
+  it('warns about values a chart cell cannot draw', () => {
+    expect(rules({ columns: [{ key: 'trend', type: 'chart' }], data: [{ trend: '1,2,3' }] })).toContain('chart-value-not-array');
+    expect(rules({ columns: [{ key: 'trend', type: 'chart' }], data: [{ trend: [1, 'x'] }] })).toContain('chart-value-mixed');
+    expect(
+      rules({ columns: [{ key: 'trend', type: 'chart', chart: { type: 'pie' } }], data: [{ trend: [{ data: [1, 2] }] }] }),
+    ).toContain('chart-value-not-numbers');
+  });
+
+  it('reads a chart type set in options, which wins over the column type', () => {
+    expect(
+      rules({
+        columns: [{ key: 'trend', type: 'chart', chart: { type: 'bar', options: { chart: { type: 'radialBar' } } } }],
+        data: [{ trend: [{ data: [1] }] }],
+      }),
+    ).toContain('chart-value-not-numbers');
+  });
+
+  it('flags a chart label that is not a function', () => {
+    expect(rules({ columns: [{ key: 'trend', type: 'chart', chart: { label: 'Trend' } }], data: rows })).toContain(
+      'chart-label-not-function',
+    );
+    expect(
+      rules({ columns: [{ key: 'trend', type: 'chart', chart: { label: () => 'Trend' } }], data: rows }),
+    ).not.toContain('chart-label-not-function');
+  });
+
+  it('does not guess the series shape when options is a function', () => {
+    const options = (_v: unknown, row: { kind: string }) => ({ chart: { type: row.kind } });
+    const r = validateGridConfig({
+      columns: [{ key: 'trend', type: 'chart', chart: { type: 'bar', options } }],
+      data: [
+        { trend: [3, 5, 2], kind: 'pie' },
+        { trend: [{ data: [1, 2] }], kind: 'line' },
+        { trend: 'nope', kind: 'line' },
+      ],
+    });
+    expect(r.issues.map((i) => i.rule)).toEqual(['chart-value-not-array']);
   });
 });

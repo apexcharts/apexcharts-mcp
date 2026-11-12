@@ -42,7 +42,9 @@ export function registerStockTools(server: McpServer): void {
             'Theme mode. Omit to leave theme out of the config: the library default (light) applies and an Ignite UI add-on can pick its own light or dark variant.',
           ),
         indicators: z
-          .union([z.array(z.string()), z.record(z.string(), z.unknown())])
+          // The cap keeps a hostile list cheap to reject: without one, zod
+          // records an issue per bad element (a 1 MB body cost ~240 MB of heap).
+          .union([z.array(z.string()).max(64), z.record(z.string(), z.unknown())])
           .optional()
           .describe(
             'Indicators to enable: a list of keys (e.g. ["moving average", "rsi"]) or a keyed config map (e.g. { "bollinger bands": { period: 20, stdDev: 2 } }). Overlays and oscillators both stack; each oscillator gets its own pane.',

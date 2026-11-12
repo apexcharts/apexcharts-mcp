@@ -82,7 +82,7 @@ Each workspace package is `private: true` — only the root `apexcharts-mcp` shi
 | `apextree_generate_config`    | implemented | Build a valid ApexTree config with a recursive NestedNode root. |
 | `apextree_validate_config`    | implemented | Validate an ApexTree config (every node has id/name/children, ids unique, valid options). |
 | `apexgrid_generate_config`    | implemented | Build a valid `<apex-grid>` config `{ columns, data }`, inferring columns from data when omitted. |
-| `apexgrid_validate_config`    | implemented | Validate an apex-grid config (column.key in data, type is one of apex-grid's 13 column types). |
+| `apexgrid_validate_config`    | implemented | Validate an apex-grid config (column.key in data, type is one of apex-grid's 14 column types, the `chart` option and the values a `type: 'chart'` column can draw). |
 | `apexstock_get_reference`     | implemented | List or read files from the apexstock-skill knowledge base.            |
 | `apexstock_generate_config`   | implemented | Build a valid ApexStock config (OHLC series, indicators, overlays).    |
 | `apexstock_validate_config`   | implemented | Validate an ApexStock config (flat o/h/l/c keys, tuple order, x, ordering, indicators). |

@@ -36,8 +36,14 @@ const VALID_TYPES = new Set([
   'badge',
   'progress',
   'sparkline',
+  'chart',
   'status',
 ]);
+
+// Chart types a `type: 'chart'` column draws from a plain `number[]`, one value
+// per slice or ring, rather than from `{ data }` series (apex-grid 4.1.0
+// column-types.ts NON_AXIS_CHART_TYPES).
+const NON_AXIS_CHART_TYPES = new Set(['pie', 'donut', 'radialBar', 'polarArea']);
 
 function isObject(v: unknown): v is AnyObj {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -50,6 +56,8 @@ function isObject(v: unknown): v is AnyObj {
  *   - column.key required and must be a real key of the data row type
  *   - duplicate column.key
  *   - column.type must be one of apex-grid's column types
+ *   - a `chart` column option has the right shape, and a `type: 'chart'`
+ *     column's values are ones it can draw (apex-grid 4.1.0)
  *   - sort/filter must be boolean or object (per-column opt-in)
  *   - row shape must be an object
  *   - designSystem / tokens grid properties, when present, must be booleans
@@ -114,7 +122,7 @@ export function validateGridConfig(config: unknown): ValidationResult {
   }
 
   const dataKeys = collectDataKeys(data, issues);
-  checkColumns(columns, dataKeys, data.length, issues);
+  checkColumns(columns, dataKeys, data, issues);
 
   return finalize(issues);
 }
@@ -145,9 +153,10 @@ function collectDataKeys(data: unknown[], issues: ValidationIssue[]): Set<string
 function checkColumns(
   columns: unknown[],
   dataKeys: Set<string>,
-  dataLen: number,
+  data: unknown[],
   issues: ValidationIssue[],
 ): void {
+  const dataLen = data.length;
   const seenKeys = new Set<string>();
 
   columns.forEach((column, i) => {
@@ -204,6 +213,8 @@ function checkColumns(
       }
     }
 
+    checkChartColumn(column, i, data, issues);
+
     if (column.sort !== undefined && typeof column.sort !== 'boolean' && !isObject(column.sort)) {
       issues.push({
         severity: 'error',
@@ -240,4 +251,138 @@ function checkColumns(
       });
     }
   });
+}
+
+/**
+ * The `chart` option of a `type: 'chart'` column (apex-grid 4.1.0), and
+ * whether the column's values are ones it can draw. A value it cannot draw
+ * renders an empty cell, with no error from the grid.
+ */
+function checkChartColumn(
+  column: AnyObj,
+  i: number,
+  data: unknown[],
+  issues: ValidationIssue[],
+): void {
+  const chart = column.chart;
+  const path = `columns[${i}].chart`;
+  if (chart !== undefined && column.type !== 'chart') {
+    issues.push({
+      severity: 'warning',
+      rule: 'chart-option-ignored',
+      path,
+      message: "column.chart is read only by a `type: 'chart'` column; on this column it is ignored.",
+      fix: "Set `type: 'chart'`, or remove `chart`.",
+    });
+  }
+  if (chart !== undefined && !isObject(chart)) {
+    issues.push({
+      severity: 'error',
+      rule: 'chart-option-wrong-shape',
+      path,
+      message: 'column.chart must be an object `{ type?, height?, width?, options?, label? }`.',
+    });
+    return;
+  }
+  const config = (chart ?? {}) as AnyObj;
+  if (config.type !== undefined && typeof config.type !== 'string') {
+    issues.push({
+      severity: 'error',
+      rule: 'chart-type-not-string',
+      path: `${path}.type`,
+      message: "column.chart.type must be an ApexCharts chart type string, such as 'line', 'bar' or 'donut'.",
+    });
+  }
+  if (config.height !== undefined && typeof config.height !== 'number') {
+    issues.push({
+      severity: 'error',
+      rule: 'chart-height-not-number',
+      path: `${path}.height`,
+      message: 'column.chart.height is a number of pixels (default 28).',
+    });
+  }
+  if (
+    config.width !== undefined &&
+    typeof config.width !== 'number' &&
+    typeof config.width !== 'string'
+  ) {
+    issues.push({
+      severity: 'error',
+      rule: 'chart-width-wrong-type',
+      path: `${path}.width`,
+      message: "column.chart.width is a number of pixels or a CSS length (default '100%').",
+    });
+  }
+  if (
+    config.options !== undefined &&
+    !isObject(config.options) &&
+    typeof config.options !== 'function'
+  ) {
+    issues.push({
+      severity: 'error',
+      rule: 'chart-options-wrong-shape',
+      path: `${path}.options`,
+      message:
+        'column.chart.options must be an ApexCharts options object, or a function `(value, row) => options`.',
+    });
+  }
+  if (config.label !== undefined && typeof config.label !== 'function') {
+    issues.push({
+      severity: 'error',
+      rule: 'chart-label-not-function',
+      path: `${path}.label`,
+      message:
+        'column.chart.label is a function `(value, row) => string` that names each cell; any other value throws when the cell renders.',
+      fix: "Use `label: (value, row) => row.name + ' trend'`, or leave it out for the default name.",
+    });
+  }
+
+  if (column.type !== 'chart' || typeof column.key !== 'string') return;
+  const key = column.key;
+  // The type in options wins the merge, as it does in the grid.
+  const optionsType =
+    isObject(config.options) && isObject(config.options.chart) ? config.options.chart.type : undefined;
+  const chartType = typeof optionsType === 'string' ? optionsType : config.type;
+  const nonAxis = typeof chartType === 'string' && NON_AXIS_CHART_TYPES.has(chartType);
+  // An options function can return another chart type per row, so only the
+  // checks that hold for every type apply.
+  const perRowType = typeof config.options === 'function';
+  for (let r = 0; r < data.length; r++) {
+    const row = data[r];
+    if (!isObject(row)) continue;
+    const value = row[key];
+    if (value == null) continue;
+    if (!Array.isArray(value)) {
+      issues.push({
+        severity: 'warning',
+        rule: 'chart-value-not-array',
+        path: `data[${r}].${key}`,
+        message: `A \`type: 'chart'\` cell draws a number[] or an array of { data } series; this value is neither, so the cell renders empty.`,
+      });
+      return;
+    }
+    const numbers = value.every((v) => v == null || typeof v === 'number');
+    if (perRowType) continue;
+    if (nonAxis && !numbers) {
+      issues.push({
+        severity: 'warning',
+        rule: 'chart-value-not-numbers',
+        path: `data[${r}].${key}`,
+        message: `A ${chartType} chart takes a number[], one value per slice or ring; this value holds something else, so the cell renders empty.`,
+        fix: 'Pass the numbers themselves, such as [3, 5, 2].',
+      });
+      return;
+    }
+    const series = value.every((v) => isObject(v) && Array.isArray(v.data));
+    if (!nonAxis && !numbers && !series) {
+      issues.push({
+        severity: 'warning',
+        rule: 'chart-value-mixed',
+        path: `data[${r}].${key}`,
+        message:
+          'A chart value is either a number[] (null for a gap) or an array of { data } series, not a mix, so this cell renders empty.',
+      });
+      return;
+    }
+  }
 }

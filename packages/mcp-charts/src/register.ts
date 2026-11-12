@@ -47,6 +47,9 @@ export function registerChartsTools(server: McpServer): void {
           .describe('Optional series data in the format required by the chart type.'),
         categories: z
           .array(z.string())
+          // A cap keeps a hostile list cheap to reject (zod records one issue per bad
+          // element otherwise); real category lists are far shorter.
+          .max(10_000)
           .optional()
           .describe('xaxis categories (axis charts) or labels (pie/donut/etc).'),
         title: z.string().optional().describe('Optional chart title.'),

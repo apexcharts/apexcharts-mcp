@@ -102,6 +102,26 @@ describe('tool input schemas', () => {
     });
     const [content] = result.content as Array<{ type: string; text: string }>;
     expect(result.isError).toBe(true);
-    expect(content.text).toMatch(/expected object, received string/i);
+    // zod 4 names a z.record input 'record' where zod 3 said 'object'; either
+    // tells the client to send an object, not a JSON string.
+    expect(content.text).toMatch(/expected (object|record), received string/i);
+  });
+
+  it('caps every array input whose entries can fail, so a hostile list is rejected cheaply', () => {
+    // Without a length cap zod records one issue per bad element: a 1 MB list
+    // cost about 240 MB of heap on a server with 256 MB. An array of anything
+    // (`{}` items, from z.unknown()) has no element that can fail.
+    const uncapped: string[] = [];
+    const walk = (schema: Record<string, unknown>, at: string) => {
+      const items = schema.items as Record<string, unknown> | undefined;
+      const itemsCanFail = items !== undefined && Object.keys(items).length > 0;
+      if (schema.type === 'array' && itemsCanFail && typeof schema.maxItems !== 'number') uncapped.push(at);
+      for (const branch of ((schema.anyOf ?? schema.oneOf) as Record<string, unknown>[] | undefined) ?? []) walk(branch, at);
+      const props = schema.properties as Record<string, Record<string, unknown>> | undefined;
+      for (const [k, v] of Object.entries(props ?? {})) walk(v, `${at}.${k}`);
+      if (schema.items && typeof schema.items === 'object') walk(schema.items as Record<string, unknown>, `${at}[]`);
+    };
+    for (const tool of tools) walk(tool.inputSchema as Record<string, unknown>, tool.name);
+    expect(uncapped).toEqual([]);
   });
 });
