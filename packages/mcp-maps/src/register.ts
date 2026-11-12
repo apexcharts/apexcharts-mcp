@@ -45,7 +45,7 @@ export function registerMapsTools(server: McpServer): void {
               'hexbin `{ lon, lat, value? }`. Omit for a placeholder dataset.',
           ),
         joinBy: z
-          .union([z.string(), z.tuple([z.string(), z.string()]), z.record(z.string())])
+          .union([z.string(), z.tuple([z.string(), z.string()]), z.record(z.string(), z.string())])
           .optional()
           .describe(
             'Join spec: "field", ["geoField", "dataField"], or { geo, data }. ' +
@@ -56,7 +56,7 @@ export function registerMapsTools(server: McpServer): void {
           .optional()
           .describe('Palette name for the value scale (e.g. "blues", "viridis", "okabeIto").'),
         projection: z
-          .union([z.string(), z.record(z.unknown())])
+          .union([z.string(), z.record(z.string(), z.unknown())])
           .optional()
           .describe(
             'Projection name or spec object. Omit to use the pack default (recommended: ' +
