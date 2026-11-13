@@ -1,4 +1,4 @@
-import { checkDesignSwitches } from '@apexcharts-mcp/core';
+import { checkDesignSwitches, createIssueList, finalizeIssues } from '@apexcharts-mcp/core';
 
 export type Severity = 'error' | 'warning';
 
@@ -36,7 +36,8 @@ function isObject(v: unknown): v is AnyObj {
  * `options.type: 'chord'` changes which edges survive, so it is read here.
  */
 export function validateSankeyConfig(config: unknown): ValidationResult {
-  const issues: ValidationIssue[] = [];
+  // Keeps the first issues of each rule and counts the rest (see core).
+  const issues = createIssueList<ValidationIssue>();
 
   if (!isObject(config)) {
     issues.push({
@@ -67,9 +68,7 @@ export function validateSankeyConfig(config: unknown): ValidationResult {
 }
 
 function finalize(issues: ValidationIssue[]): ValidationResult {
-  const errors = issues.filter((i) => i.severity === 'error');
-  const warnings = issues.filter((i) => i.severity === 'warning');
-  return { ok: errors.length === 0, errors, warnings, issues };
+  return finalizeIssues(issues);
 }
 
 function checkGraph(data: AnyObj, basePath: string, isChord: boolean, issues: ValidationIssue[]): void {

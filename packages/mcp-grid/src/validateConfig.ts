@@ -1,4 +1,4 @@
-import { checkDesignSwitches } from '@apexcharts-mcp/core';
+import { checkDesignSwitches, createIssueList, finalizeIssues } from '@apexcharts-mcp/core';
 
 export type Severity = 'error' | 'warning';
 
@@ -63,7 +63,8 @@ function isObject(v: unknown): v is AnyObj {
  *   - designSystem / tokens grid properties, when present, must be booleans
  */
 export function validateGridConfig(config: unknown): ValidationResult {
-  const issues: ValidationIssue[] = [];
+  // Keeps the first issues of each rule and counts the rest (see core).
+  const issues = createIssueList<ValidationIssue>();
 
   if (!isObject(config)) {
     issues.push({
@@ -128,9 +129,7 @@ export function validateGridConfig(config: unknown): ValidationResult {
 }
 
 function finalize(issues: ValidationIssue[]): ValidationResult {
-  const errors = issues.filter((i) => i.severity === 'error');
-  const warnings = issues.filter((i) => i.severity === 'warning');
-  return { ok: errors.length === 0, errors, warnings, issues };
+  return finalizeIssues(issues);
 }
 
 function collectDataKeys(data: unknown[], issues: ValidationIssue[]): Set<string> {

@@ -7,3 +7,5 @@ export { readSkillCompatibility } from './compatibility.js';
 export type { SkillCompatibility } from './compatibility.js';
 export { checkDesignSwitches, DESIGN_SWITCHES } from './designSwitches.js';
 export type { DesignSwitch, DesignSwitchIssue } from './designSwitches.js';
+export { createIssueList, finalizeIssues, MAX_ISSUES_PER_RULE } from './issues.js';
+export type { IssueLike } from './issues.js';

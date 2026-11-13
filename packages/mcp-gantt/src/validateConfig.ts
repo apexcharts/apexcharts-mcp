@@ -1,4 +1,4 @@
-import { checkDesignSwitches } from '@apexcharts-mcp/core';
+import { checkDesignSwitches, createIssueList, finalizeIssues } from '@apexcharts-mcp/core';
 
 export type Severity = 'error' | 'warning';
 
@@ -58,7 +58,8 @@ interface Context {
  * workingWeekdays), the message says what each version does. Never throws.
  */
 export function validateGanttConfig(config: unknown): ValidationResult {
-  const issues: ValidationIssue[] = [];
+  // Keeps the first issues of each rule and counts the rest (see core).
+  const issues = createIssueList<ValidationIssue>();
 
   if (!isObject(config)) {
     issues.push({
@@ -158,9 +159,7 @@ function checkParsing(parsing: unknown, issues: ValidationIssue[]): void {
 }
 
 function finalize(issues: ValidationIssue[]): ValidationResult {
-  const errors = issues.filter((i) => i.severity === 'error');
-  const warnings = issues.filter((i) => i.severity === 'warning');
-  return { ok: errors.length === 0, errors, warnings, issues };
+  return finalizeIssues(issues);
 }
 
 // --- Per-task checks ------------------------------------------------------

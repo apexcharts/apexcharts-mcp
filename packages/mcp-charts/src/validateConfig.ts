@@ -1,4 +1,4 @@
-import { checkDesignSwitches } from '@apexcharts-mcp/core';
+import { checkDesignSwitches, createIssueList, finalizeIssues } from '@apexcharts-mcp/core';
 import {
   bundleConsequence,
   bundleRemedy,
@@ -41,7 +41,8 @@ function isObject(v: unknown): v is AnyObj {
  * (sections 2 and 6). Never throws: every problem becomes an issue.
  */
 export function validateChartConfig(config: unknown): ValidationResult {
-  const issues: ValidationIssue[] = [];
+  // Keeps the first issues of each rule and counts the rest (see core).
+  const issues = createIssueList<ValidationIssue>();
 
   if (!isObject(config)) {
     issues.push({
@@ -132,9 +133,7 @@ export function validateChartConfig(config: unknown): ValidationResult {
 }
 
 function finalize(issues: ValidationIssue[]): ValidationResult {
-  const errors = issues.filter((i) => i.severity === 'error');
-  const warnings = issues.filter((i) => i.severity === 'warning');
-  return { ok: errors.length === 0, errors, warnings, issues };
+  return finalizeIssues(issues);
 }
 
 // --- Series ---------------------------------------------------------------

@@ -1,4 +1,4 @@
-import { checkDesignSwitches } from '@apexcharts-mcp/core';
+import { checkDesignSwitches, createIssueList, finalizeIssues } from '@apexcharts-mcp/core';
 import { BUILT_IN_MAPS, HEX_LAYOUT_MAPS } from './mapCatalog.js';
 
 export type Severity = 'error' | 'warning';
@@ -146,7 +146,8 @@ function lonLatOutOfRange(v: [number, number]): boolean {
  * must exist.
  */
 export function validateMapsConfig(config: unknown): ValidationResult {
-  const issues: ValidationIssue[] = [];
+  // Keeps the first issues of each rule and counts the rest (see core).
+  const issues = createIssueList<ValidationIssue>();
 
   if (!isObject(config)) {
     issues.push({
@@ -205,9 +206,7 @@ export function validateMapsConfig(config: unknown): ValidationResult {
 }
 
 function finalize(issues: ValidationIssue[]): ValidationResult {
-  const errors = issues.filter((i) => i.severity === 'error');
-  const warnings = issues.filter((i) => i.severity === 'warning');
-  return { ok: errors.length === 0, errors, warnings, issues };
+  return finalizeIssues(issues);
 }
 
 /** The projection name geo.projection asks for (a string, or a spec's name), if any. */

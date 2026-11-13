@@ -1,4 +1,4 @@
-import { checkDesignSwitches } from '@apexcharts-mcp/core';
+import { checkDesignSwitches, createIssueList, finalizeIssues } from '@apexcharts-mcp/core';
 import { ALL_INDICATOR_KEYS, isKnownIndicator } from './indicators.js';
 
 export type Severity = 'error' | 'warning';
@@ -32,7 +32,8 @@ function isObject(v: unknown): v is AnyObj {
  * references/data-format.md. Never throws.
  */
 export function validateStockConfig(config: unknown): ValidationResult {
-  const issues: ValidationIssue[] = [];
+  // Keeps the first issues of each rule and counts the rest (see core).
+  const issues = createIssueList<ValidationIssue>();
 
   if (!isObject(config)) {
     issues.push({
@@ -52,9 +53,7 @@ export function validateStockConfig(config: unknown): ValidationResult {
 }
 
 function finalize(issues: ValidationIssue[]): ValidationResult {
-  const errors = issues.filter((i) => i.severity === 'error');
-  const warnings = issues.filter((i) => i.severity === 'warning');
-  return { ok: errors.length === 0, errors, warnings, issues };
+  return finalizeIssues(issues);
 }
 
 // --- Series / OHLC data ---------------------------------------------------

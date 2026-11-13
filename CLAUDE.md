@@ -94,6 +94,8 @@ Each workspace package is `private: true` — only the root `apexcharts-mcp` shi
 
 Each rule has a stable `rule` id (kebab-case) so callers can pattern-match on it. New rules: pick a clear id, set `severity` ('error' breaks rendering, 'warning' is a "probably wrong" hint), include a dot/bracket `path`, and provide a `fix` line when there's a one-shot remedy. Add a test in `packages/mcp-charts/tests/validateConfig.test.ts` per rule.
 
+Every product's validator collects into `createIssueList()` and returns through `finalizeIssues()` (both from `@apexcharts-mcp/core`): the list keeps the first 25 issues of each rule and the result adds one `"N more ... not listed"` issue per rule that hit the cap. Before 0.14.1 a 1 MB config of bad items made any validator answer with about 524,000 issues, a 160 to 200 MB response and 255 to 364 MB of heap, on a hosted container with 256 MB. Keep new validators on these helpers; `tests/validator-bounds.test.ts` replaces every array in each product's generated config with 2,000 junk items and fails if a rule lists more.
+
 ## How to add a new tool
 
 1. Put the pure logic in its own module under the relevant `packages/mcp-<product>/src/`. Keep it framework-free so it's easy to unit-test.
